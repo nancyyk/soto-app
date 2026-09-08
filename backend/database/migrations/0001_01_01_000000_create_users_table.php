@@ -12,11 +12,13 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('users', function (Blueprint $table) {
-            $table->string('uid')->primary();
-            $table->string('name');
-            $table->string('email')->unique();
+            $table->id();
+            $table->string('nama', 150);
+            $table->string('email', 150)->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
+            $table->unsignedInteger('saldo_poin')->default(0);
+            $table->string('role', 20)->default('user')->index(); // user|admin|petugas
             $table->rememberToken();
             $table->timestamps();
         });
@@ -29,16 +31,11 @@ return new class extends Migration
 
         Schema::create('sessions', function (Blueprint $table) {
             $table->string('id')->primary();
-            $table->string('user_uid')->nullable()->index();
+            $table->foreignId('user_id')->nullable()->index();
             $table->string('ip_address', 45)->nullable();
             $table->text('user_agent')->nullable();
             $table->longText('payload');
             $table->integer('last_activity')->index();
-
-            $table->foreign('user_uid')
-                ->references('uid')
-                ->on('users')
-                ->nullOnDelete();
         });
     }
 
@@ -47,8 +44,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('sessions');
-        Schema::dropIfExists('password_reset_tokens');
         Schema::dropIfExists('users');
+        Schema::dropIfExists('password_reset_tokens');
+        Schema::dropIfExists('sessions');
     }
 };
