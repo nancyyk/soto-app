@@ -18,8 +18,8 @@ return [
 
     // MQTT broker configuration
     'mqtt' => [
-        'host'     => env('MQTT_HOST', 'localhost'),
-        'port'     => (int) env('MQTT_PORT', 1883),
+        'host' => env('MQTT_HOST', 'localhost'),
+        'port' => (int) env('MQTT_PORT', 1883),
         'username' => env('MQTT_USERNAME', ''),
         'password' => env('MQTT_PASSWORD', ''),
         'topic_prefix' => 'soto',

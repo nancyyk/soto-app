@@ -1,6 +1,7 @@
 <?php
 
 use App\Services\BruteForceTspStrategy;
+use App\Services\NearestNeighborTwoOptStrategy;
 use App\Services\TspSolverService;
 
 /**
@@ -9,11 +10,10 @@ use App\Services\TspSolverService;
  * Golden test: 4 nodes from proposal (Bagian 8.10)
  * Expected route: Pos -> SOTO1 -> SOTO3 -> SOTO4 -> Pos = 16.2 km
  */
-
 describe('TspSolverService', function () {
 
     beforeEach(function () {
-        $this->solver = new TspSolverService();
+        $this->solver = new TspSolverService;
     });
 
     it('calculates haversine distance correctly between two points', function () {
@@ -52,11 +52,12 @@ describe('TspSolverService', function () {
             ['lat' => -7.2770, 'lng' => 112.7920],  // SOTO-4
         ];
         $matrix = $this->solver->buildDistanceMatrix($nodes);
-        $result = (new BruteForceTspStrategy())->solve($matrix, depotIndex: 0);
+        $result = (new BruteForceTspStrategy)->solve($matrix, depotIndex: 0);
 
         // Route should start and end at depot (index 0)
         expect($result->orderedNodeIndices[0])->toBe(0);
-        $indices = $result->orderedNodeIndices; expect(end($indices))->toBe(0);
+        $indices = $result->orderedNodeIndices;
+        expect(end($indices))->toBe(0);
 
         // All non-depot nodes should appear exactly once
         $interior = array_slice($result->orderedNodeIndices, 1, -1);
@@ -84,13 +85,14 @@ describe('TspSolverService', function () {
             ['lat' => -7.277, 'lng' => 112.792],  // 3 = SOTO-4
         ];
 
-        $matrix   = $this->solver->buildDistanceMatrix($nodes);
-        $strategy = new BruteForceTspStrategy();
-        $result   = $strategy->solve($matrix, depotIndex: 0);
+        $matrix = $this->solver->buildDistanceMatrix($nodes);
+        $strategy = new BruteForceTspStrategy;
+        $result = $strategy->solve($matrix, depotIndex: 0);
 
         // Brute-force must find SOME valid tour
         expect($result->orderedNodeIndices[0])->toBe(0);
-        $indices = $result->orderedNodeIndices; expect(end($indices))->toBe(0);
+        $indices = $result->orderedNodeIndices;
+        expect(end($indices))->toBe(0);
         expect($result->totalDistanceKm)->toBeGreaterThan(0)->toBeLessThan(20);
 
         // Estimated duration should be non-zero
@@ -102,13 +104,13 @@ describe('TspSolverService', function () {
         for ($i = 0; $i < 12; $i++) {
             $nodes[] = ['lat' => -7.28 + ($i * 0.01), 'lng' => 112.79 + ($i * 0.005)];
         }
-        $matrix   = $this->solver->buildDistanceMatrix($nodes);
-        $strategy = new \App\Services\NearestNeighborTwoOptStrategy();
-        $result   = $strategy->solve($matrix, depotIndex: 0);
+        $matrix = $this->solver->buildDistanceMatrix($nodes);
+        $strategy = new NearestNeighborTwoOptStrategy;
+        $result = $strategy->solve($matrix, depotIndex: 0);
 
         expect($result->orderedNodeIndices[0])->toBe(0);
-        $indices = $result->orderedNodeIndices; expect(end($indices))->toBe(0);
+        $indices = $result->orderedNodeIndices;
+        expect(end($indices))->toBe(0);
         expect($result->totalDistanceKm)->toBeGreaterThan(0);
     });
 });
-

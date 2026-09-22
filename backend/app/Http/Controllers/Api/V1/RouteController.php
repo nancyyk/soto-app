@@ -22,7 +22,7 @@ class RouteController extends Controller
     {
         $route = Route::with('stops.machine')->latest()->first();
 
-        if (!$route) {
+        if (! $route) {
             return response()->json(['message' => 'Belum ada rute tersedia'], 404);
         }
 
@@ -37,6 +37,7 @@ class RouteController extends Controller
     public function recalculate(Request $request): JsonResponse
     {
         RecalculateRouteJob::dispatch();
+
         return response()->json(['message' => 'TSP recalculation queued'], 202);
     }
 }

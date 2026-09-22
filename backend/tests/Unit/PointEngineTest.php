@@ -16,23 +16,39 @@
  */
 class BottleFsm
 {
-    const STATE_IDLE   = 'idle';
+    const STATE_IDLE = 'idle';
+
     const STATE_STAGE1 = 'stage1';
+
     const STATE_STAGE2 = 'stage2';
+
     const STATE_STAGE3 = 'stage3';
 
-    private string $state    = self::STATE_IDLE;
-    private int    $count    = 0;
-    private int    $poinPerBottle;
+    private string $state = self::STATE_IDLE;
+
+    private int $count = 0;
+
+    private int $poinPerBottle;
 
     public function __construct(int $poinPerBottle = 10)
     {
         $this->poinPerBottle = $poinPerBottle;
     }
 
-    public function getState(): string  { return $this->state; }
-    public function getCount(): int     { return $this->count; }
-    public function getTotalPoin(): int { return $this->count * $this->poinPerBottle; }
+    public function getState(): string
+    {
+        return $this->state;
+    }
+
+    public function getCount(): int
+    {
+        return $this->count;
+    }
+
+    public function getTotalPoin(): int
+    {
+        return $this->count * $this->poinPerBottle;
+    }
 
     public function ir1Blocked(): void
     {
@@ -166,7 +182,7 @@ describe('BottleFsm — state transitions', function () {
 describe('Point calculation', function () {
 
     it('calculates poin correctly for different poin_per_botol values', function () {
-        $fsm5  = new BottleFsm(poinPerBottle: 5);
+        $fsm5 = new BottleFsm(poinPerBottle: 5);
         $fsm20 = new BottleFsm(poinPerBottle: 20);
 
         foreach ([$fsm5, $fsm20] as $fsm) {

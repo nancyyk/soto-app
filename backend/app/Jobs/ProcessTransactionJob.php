@@ -20,8 +20,8 @@ class ProcessTransactionJob implements ShouldQueue
 
     public function __construct(
         public readonly string $uidRfid,
-        public readonly int    $machineId,
-        public readonly int    $jumlahBotol,
+        public readonly int $machineId,
+        public readonly int $jumlahBotol,
         public readonly string $timestamp,
     ) {}
 
@@ -33,27 +33,29 @@ class ProcessTransactionJob implements ShouldQueue
             ->with('user')
             ->first();
 
-        if (!$card) {
+        if (! $card) {
             Log::warning('ProcessTransactionJob: unknown or inactive RFID', ['uid' => $this->uidRfid]);
+
             return;
         }
 
         $machine = Machine::find($this->machineId);
-        if (!$machine) {
+        if (! $machine) {
             Log::warning('ProcessTransactionJob: machine not found', ['machine_id' => $this->machineId]);
+
             return;
         }
 
         $pointsPerBottle = (int) Setting::get('poin_per_botol', config('soto.points_per_bottle', 10));
-        $poinDiperoleh   = $this->jumlahBotol * $pointsPerBottle;
+        $poinDiperoleh = $this->jumlahBotol * $pointsPerBottle;
 
         DB::transaction(function () use ($card, $poinDiperoleh) {
             Transaction::create([
-                'user_id'       => $card->user_id,
-                'machine_id'    => $this->machineId,
-                'jumlah_botol'  => $this->jumlahBotol,
-                'poin_diperoleh'=> $poinDiperoleh,
-                'created_at'    => $this->timestamp,
+                'user_id' => $card->user_id,
+                'machine_id' => $this->machineId,
+                'jumlah_botol' => $this->jumlahBotol,
+                'poin_diperoleh' => $poinDiperoleh,
+                'created_at' => $this->timestamp,
             ]);
 
             // Update denormalized saldo_poin
@@ -61,17 +63,17 @@ class ProcessTransactionJob implements ShouldQueue
         });
 
         event(new TransactionCreated(
-            userId:        $card->user_id,
-            machineId:     $this->machineId,
-            jumlahBotol:   $this->jumlahBotol,
+            userId: $card->user_id,
+            machineId: $this->machineId,
+            jumlahBotol: $this->jumlahBotol,
             poinDiperoleh: $poinDiperoleh,
-            namaUser:      $card->user->nama,
-            namaLokasi:    $machine->nama_lokasi,
+            namaUser: $card->user->nama,
+            namaLokasi: $machine->nama_lokasi,
         ));
 
         Log::info('Transaction processed', [
             'user_id' => $card->user_id,
-            'poin'    => $poinDiperoleh,
+            'poin' => $poinDiperoleh,
         ]);
     }
 }

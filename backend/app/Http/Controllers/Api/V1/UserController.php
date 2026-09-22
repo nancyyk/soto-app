@@ -20,7 +20,7 @@ class UserController extends Controller
     public function points(Request $request, User $user): JsonResponse
     {
         // Only the user themselves or an admin can see this
-        if ($request->user()->id !== $user->id && !$request->user()->isAdmin()) {
+        if ($request->user()->id !== $user->id && ! $request->user()->isAdmin()) {
             return response()->json(['error' => 'Forbidden'], 403);
         }
 
@@ -30,8 +30,8 @@ class UserController extends Controller
             ->paginate(20);
 
         return response()->json([
-            'user'         => ['id' => $user->id, 'nama' => $user->nama, 'email' => $user->email],
-            'saldo_poin'   => $user->saldo_poin,
+            'user' => ['id' => $user->id, 'nama' => $user->nama, 'email' => $user->email],
+            'saldo_poin' => $user->saldo_poin,
             'transactions' => $transactions,
         ]);
     }

@@ -17,5 +17,5 @@ Route::middleware(['App\Http\Middleware\EnsureInternalSecret'])
     ->name('internal.')
     ->group(function () {
         Route::post('/transactions', [InternalTransactionController::class, 'store'])->name('transactions.store');
-        Route::post('/telemetry',    [InternalTelemetryController::class, 'update'])->name('telemetry.update');
+        Route::post('/telemetry', [InternalTelemetryController::class, 'update'])->name('telemetry.update');
     });

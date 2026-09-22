@@ -17,18 +17,18 @@ class EnsureRole
     {
         $user = $request->user();
 
-        if (!$user) {
+        if (! $user) {
             return $request->expectsJson()
-                ? response()->json(["error" => "Unauthenticated"], 401)
-                : redirect()->route("login");
+                ? response()->json(['error' => 'Unauthenticated'], 401)
+                : redirect()->route('login');
         }
 
-        $allowedRoles = array_map(fn(string $r) => UserRole::from($r), $roles);
+        $allowedRoles = array_map(fn (string $r) => UserRole::from($r), $roles);
 
-        if (!in_array($user->role, $allowedRoles)) {
+        if (! in_array($user->role, $allowedRoles)) {
             return $request->expectsJson()
-                ? response()->json(["error" => "Forbidden"], 403)
-                : abort(403, "Akses ditolak.");
+                ? response()->json(['error' => 'Forbidden'], 403)
+                : abort(403, 'Akses ditolak.');
         }
 
         return $next($request);

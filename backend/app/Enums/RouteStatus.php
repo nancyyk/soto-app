@@ -9,7 +9,7 @@ enum RouteStatus: string
 
     public function label(): string
     {
-        return match($this) {
+        return match ($this) {
             RouteStatus::Pending => 'Menunggu',
             RouteStatus::Selesai => 'Selesai',
         };

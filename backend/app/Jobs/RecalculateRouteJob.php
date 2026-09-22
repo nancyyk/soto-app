@@ -14,13 +14,14 @@ class RecalculateRouteJob implements ShouldQueue
     use Queueable;
 
     public int $tries = 3;
+
     public int $timeout = 120;
 
     public function handle(TspSolverService $solver): void
     {
         $depot = [
-            'lat'  => (float) Setting::get('depot_lat', config('soto.depot_lat', -7.2750)),
-            'lng'  => (float) Setting::get('depot_lng', config('soto.depot_lng', 112.7900)),
+            'lat' => (float) Setting::get('depot_lat', config('soto.depot_lat', -7.2750)),
+            'lng' => (float) Setting::get('depot_lng', config('soto.depot_lng', 112.7900)),
             'nama' => Setting::get('depot_nama', 'Pos Pengangkutan'),
         ];
 
@@ -29,9 +30,9 @@ class RecalculateRouteJob implements ShouldQueue
         if ($route) {
             event(new RouteRecalculated($route));
             Log::info('TSP route recalculated', [
-                'route_id'   => $route->id,
-                'distance'   => $route->total_distance_km,
-                'stops'      => $route->stops->count(),
+                'route_id' => $route->id,
+                'distance' => $route->total_distance_km,
+                'stops' => $route->stops->count(),
             ]);
         } else {
             Log::info('TSP: no eligible machines above threshold, route skipped.');

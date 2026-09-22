@@ -28,13 +28,13 @@ class RouteRecalculated implements ShouldBroadcast
     public function broadcastWith(): array
     {
         return [
-            'route_id'          => $this->route->id,
+            'route_id' => $this->route->id,
             'total_distance_km' => $this->route->total_distance_km,
-            'total_duration_min'=> $this->route->total_duration_min,
-            'stops'             => $this->route->stops->map(fn($s) => [
-                'machine_id'  => $s->machine_id,
+            'total_duration_min' => $this->route->total_duration_min,
+            'stops' => $this->route->stops->map(fn ($s) => [
+                'machine_id' => $s->machine_id,
                 'nama_lokasi' => $s->machine?->nama_lokasi,
-                'urutan'      => $s->urutan,
+                'urutan' => $s->urutan,
             ])->values()->toArray(),
         ];
     }

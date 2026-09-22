@@ -20,10 +20,10 @@ class Route extends Model
     protected function casts(): array
     {
         return [
-            'total_distance_km'  => 'decimal:2',
+            'total_distance_km' => 'decimal:2',
             'total_duration_min' => 'integer',
-            'status'             => RouteStatus::class,
-            'created_at'         => 'datetime',
+            'status' => RouteStatus::class,
+            'created_at' => 'datetime',
         ];
     }
 

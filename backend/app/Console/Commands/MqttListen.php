@@ -3,9 +3,9 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use PhpMqtt\Client\MqttClient;
 use PhpMqtt\Client\ConnectionSettings;
 use PhpMqtt\Client\Exceptions\MqttClientException;
+use PhpMqtt\Client\MqttClient;
 
 class MqttListen extends Command
 {
@@ -24,12 +24,12 @@ class MqttListen extends Command
      */
     public function handle(): int
     {
-        $host     = config('mqtt.host');
-        $port     = config('mqtt.port');
+        $host = config('mqtt.host');
+        $port = config('mqtt.port');
         $username = config('mqtt.username');
         $password = config('mqtt.password');
         $clientId = config('mqtt.client_id');
-        $useTls   = config('mqtt.tls');
+        $useTls = config('mqtt.tls');
 
         $this->info('');
         $this->info('========================================');
@@ -37,11 +37,11 @@ class MqttListen extends Command
         $this->info('========================================');
         $this->info("Host      : {$host}:{$port}");
         $this->info("Client ID : {$clientId}");
-        $this->info("TLS       : " . ($useTls ? 'enabled' : 'disabled'));
+        $this->info('TLS       : '.($useTls ? 'enabled' : 'disabled'));
         $this->info('');
 
         // --- Build connection settings ---
-        $settings = (new ConnectionSettings())
+        $settings = (new ConnectionSettings)
             ->setUsername($username)
             ->setPassword($password)
             ->setKeepAliveInterval(config('mqtt.keep_alive', 60))
@@ -63,7 +63,8 @@ class MqttListen extends Command
             $this->info('Terhubung ke HiveMQ Cloud');
             $this->info('');
         } catch (MqttClientException $e) {
-            $this->error('Gagal terhubung: ' . $e->getMessage());
+            $this->error('Gagal terhubung: '.$e->getMessage());
+
             return self::FAILURE;
         }
 
@@ -105,6 +106,7 @@ class MqttListen extends Command
             $this->error('Payload bukan JSON yang valid:');
             $this->line($payload);
             $this->line('========================================');
+
             return;
         }
 
@@ -118,11 +120,11 @@ class MqttListen extends Command
         $this->line('ULTRASONIC');
         $ultrasonic = $data['ultrasonic'] ?? [];
         foreach (['sensor_1', 'sensor_2', 'sensor_3', 'sensor_4'] as $i => $key) {
-            $label = 'Sensor ' . ($i + 1);
+            $label = 'Sensor '.($i + 1);
             $value = isset($ultrasonic[$key])
-                ? number_format((float) $ultrasonic[$key], 1) . ' cm'
+                ? number_format((float) $ultrasonic[$key], 1).' cm'
                 : 'N/A';
-            $this->line(str_pad($label, 12) . ': ' . $value);
+            $this->line(str_pad($label, 12).': '.$value);
         }
 
         // --- Obstacle ---
@@ -130,7 +132,7 @@ class MqttListen extends Command
         $this->line('OBSTACLE');
         $obstacle = $data['obstacle'] ?? [];
         foreach (['sensor_1', 'sensor_2'] as $i => $key) {
-            $label    = 'Sensor ' . ($i + 1);
+            $label = 'Sensor '.($i + 1);
             $detected = $obstacle[$key] ?? null;
             if ($detected === null) {
                 $status = 'N/A';
@@ -139,23 +141,23 @@ class MqttListen extends Command
             } else {
                 $status = 'NOT DETECTED';
             }
-            $this->line(str_pad($label, 12) . ': ' . $status);
+            $this->line(str_pad($label, 12).': '.$status);
         }
 
         // --- RFID ---
         $this->line('');
         $this->line('RFID');
         $uid = $data['rfid']['uid'] ?? 'N/A';
-        $this->line(str_pad('UID', 12) . ': ' . $uid);
+        $this->line(str_pad('UID', 12).': '.$uid);
 
         // --- DFPlayer ---
         $this->line('');
         $this->line('DFPLAYER');
         $dfplayer = $data['dfplayer'] ?? [];
         $dpStatus = $dfplayer['status'] ?? 'N/A';
-        $track    = $dfplayer['track'] ?? 'N/A';
-        $this->line(str_pad('Status', 12) . ': ' . $dpStatus);
-        $this->line(str_pad('Track', 12) . ': ' . $track);
+        $track = $dfplayer['track'] ?? 'N/A';
+        $this->line(str_pad('Status', 12).': '.$dpStatus);
+        $this->line(str_pad('Track', 12).': '.$track);
 
         // --- Footer ---
         $this->line('');

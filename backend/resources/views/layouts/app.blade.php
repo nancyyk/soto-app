@@ -1,93 +1,74 @@
 <!DOCTYPE html>
-<html lang="id" class="h-full"
-    x-data="{ dark: localStorage.getItem('soto-theme') === 'dark' }"
-    x-init="$watch('dark', v => { localStorage.setItem('soto-theme', v ? 'dark' : 'light'); document.documentElement.classList.toggle('dark', v) }); document.documentElement.classList.toggle('dark', dark)"
-    :class="{ 'dark': dark }">
+<html lang="id" class="h-full bg-gray-50" x-data="{ sidebarOpen: false }">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="csrf-token" content="{{ csrf_token() }}" />
-    <title>@yield("title", "Dashboard") ? SOTO Admin</title>
-    @vite(["resources/css/app.css", "resources/js/app.js"])
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>@yield('title') - SOTO Admin</title>
+    <link rel="preconnect" href="https://fonts.bunny.net">
+    <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700&display=swap" rel="stylesheet" />
+    
     @livewireStyles
-    <script src="https://cdn.jsdelivr.net/npm/apexcharts" defer></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
-    @stack("styles")
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
 </head>
-<body class="h-full bg-gray-100 dark:bg-gray-950 transition-colors duration-200">
-<div class="flex h-full" x-data="{ sidebarOpen: false }">
+<body class="h-full font-sans antialiased text-gray-900 bg-gray-50 overflow-hidden">
+    
+    <div class="flex h-full">
+        <aside class="hidden md:block w-64 flex-shrink-0 z-20">
+            @include('layouts.partials.sidebar')
+        </aside>
 
-    {{-- ?? Sidebar ???????????????????????????????????????????????????????? --}}
-    <aside class="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 z-30">
-        @include("layouts.partials.sidebar")
-    </aside>
+        <div x-show="sidebarOpen" x-cloak class="fixed inset-0 bg-gray-900/80 z-40 md:hidden" @click="sidebarOpen = false" x-transition.opacity></div>
 
-    {{-- Mobile sidebar overlay --}}
-    <div x-show="sidebarOpen" x-cloak @click="sidebarOpen=false"
-         class="fixed inset-0 bg-black/40 z-20 lg:hidden"></div>
-    <aside x-show="sidebarOpen" x-cloak
-           class="fixed inset-y-0 left-0 w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 z-30 lg:hidden">
-        @include("layouts.partials.sidebar")
-    </aside>
+        <aside x-show="sidebarOpen" x-cloak class="fixed inset-y-0 left-0 w-64 z-50 md:hidden transform transition-transform" x-transition:enter="duration-300 ease-out" x-transition:enter-start="-translate-x-full" x-transition:enter-end="translate-x-0" x-transition:leave="duration-200 ease-in" x-transition:leave-start="translate-x-0" x-transition:leave-end="-translate-x-full">
+            @include('layouts.partials.sidebar')
+        </aside>
 
-    {{-- ?? Main Content ??????????????????????????????????????????????????? --}}
-    <div class="flex flex-col flex-1 lg:pl-64 min-h-screen">
-
-        {{-- Topbar --}}
-        <header class="sticky top-0 z-10 flex items-center gap-4 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 py-3 shadow-sm">
-            {{-- Mobile hamburger --}}
-            <button @click="sidebarOpen = !sidebarOpen" class="lg:hidden text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
-                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
-            </button>
-
-            {{-- Page title --}}
-            <h1 class="flex-1 text-base font-semibold text-gray-800 dark:text-gray-100">@yield("title", "Dashboard")</h1>
-
-            {{-- ?? Right side controls ??????????????????????????????????? --}}
-            <div class="flex items-center gap-3">
-
-                {{-- Dark mode toggle --}}
-                <button @click="dark = !dark"
-                        class="relative w-9 h-9 flex items-center justify-center rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                        :title="dark ? 'Beralih ke mode terang' : 'Beralih ke mode gelap'">
-                    {{-- Sun icon (shown in dark mode) --}}
-                    <svg x-show="dark" class="w-5 h-5 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
-                    </svg>
-                    {{-- Moon icon (shown in light mode) --}}
-                    <svg x-show="!dark" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
-                    </svg>
+        <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+            <!-- Topbar with Page Title & Right Actions -->
+            <header class="bg-white border-b border-gray-200 h-16 flex items-center px-4 sm:px-6 z-10 flex-shrink-0 shadow-sm">
+                <button @click="sidebarOpen = true" class="md:hidden p-2 -ml-2 mr-3 rounded-md text-gray-500 hover:bg-gray-100">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
                 </button>
+                <div class="flex-1 min-w-0">
+                    <h1 class="text-lg font-semibold text-gray-900 tracking-tight truncate">@yield('title', 'Dashboard')</h1>
+                </div>
 
-                {{-- Divider --}}
-                <div class="w-px h-6 bg-gray-200 dark:bg-gray-700"></div>
+                <!-- Top Right Actions -->
+                <div class="flex items-center gap-3 ml-4 flex-shrink-0">
+                    <!-- User Avatar -->
+                    <div class="w-9 h-9 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-sm shadow-sm cursor-help hover:bg-emerald-100 transition-colors" 
+                         title="{{ Auth::user()->nama ?? 'Administrator' }} ({{ Auth::user()->email ?? '' }})">
+                        {{ strtoupper(substr(Auth::user()->nama ?? 'A', 0, 1)) }}
+                    </div>
 
-                {{-- User info --}}
-                <span class="text-sm text-gray-500 dark:text-gray-400 hidden sm:block">{{ auth()->user()?->nama }}</span>
+                    <!-- Logout Button -->
+                    <form method="POST" action="{{ route('logout') }}" class="m-0">
+                        @csrf
+                        <button type="submit" class="w-9 h-9 rounded-full bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 flex items-center justify-center shadow-sm transition-colors group" title="Keluar dari Aplikasi">
+                            <svg class="w-4 h-4 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                            </svg>
+                        </button>
+                    </form>
+                </div>
+            </header>
 
-                {{-- Logout --}}
-                <form method="POST" action="{{ route("logout") }}">
-                    @csrf
-                    <button type="submit" class="text-sm text-red-500 hover:text-red-400 font-medium transition-colors">Keluar</button>
-                </form>
-            </div>
-        </header>
-
-        {{-- Page content --}}
-        <main class="flex-1 p-6">
-            @yield("content")
-        </main>
-
-        <footer class="text-center text-xs text-gray-400 dark:text-gray-600 py-4 border-t border-gray-100 dark:border-gray-800">
-            SOTO Admin &copy; {{ date("Y") }} ? Sampah Otomatis Tukar Poin
-        </footer>
+            <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+                @yield('content')
+                
+                @if(isset($slot))
+                    {{ $slot }}
+                @endif
+            </main>
+        </div>
     </div>
-</div>
-@livewireScripts
-@stack("scripts")
+
+    @livewireScripts
+    @stack('scripts')
 </body>
 </html>

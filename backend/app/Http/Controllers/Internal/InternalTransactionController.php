@@ -26,17 +26,17 @@ class InternalTransactionController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'uid_rfid'     => ['required', 'string', 'max:50'],
-            'machine_id'   => ['required', 'integer', 'min:1'],
+            'uid_rfid' => ['required', 'string', 'max:50'],
+            'machine_id' => ['required', 'integer', 'min:1'],
             'jumlah_botol' => ['required', 'integer', 'min:1', 'max:255'],
-            'timestamp'    => ['required', 'string'],
+            'timestamp' => ['required', 'string'],
         ]);
 
         ProcessTransactionJob::dispatch(
-            uidRfid:     $validated['uid_rfid'],
-            machineId:   $validated['machine_id'],
+            uidRfid: $validated['uid_rfid'],
+            machineId: $validated['machine_id'],
             jumlahBotol: $validated['jumlah_botol'],
-            timestamp:   $validated['timestamp'],
+            timestamp: $validated['timestamp'],
         );
 
         Log::info('Internal: transaction queued', ['uid' => $validated['uid_rfid']]);

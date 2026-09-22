@@ -14,25 +14,25 @@ class User extends Authenticatable
     use HasApiTokens, HasFactory, Notifiable;
 
     protected $fillable = [
-        "nama",
-        "email",
-        "password",
-        "saldo_poin",
-        "role",
+        'nama',
+        'email',
+        'password',
+        'saldo_poin',
+        'role',
     ];
 
     protected $hidden = [
-        "password",
-        "remember_token",
+        'password',
+        'remember_token',
     ];
 
     protected function casts(): array
     {
         return [
-            "email_verified_at" => "datetime",
-            "password"          => "hashed",
-            "saldo_poin"        => "integer",
-            "role"              => UserRole::class,
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
+            'saldo_poin' => 'integer',
+            'role' => UserRole::class,
         ];
     }
 

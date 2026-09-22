@@ -1,29 +1,35 @@
 <!DOCTYPE html>
-<html lang="id" class="h-full"
-    x-data="{ dark: localStorage.getItem('soto-theme') === 'dark' }"
-    x-init="document.documentElement.classList.toggle('dark', dark)"
-    :class="{ 'dark': dark }">
+<html lang="id" class="h-full bg-gray-50">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@yield("title", "Login") ? SOTO Admin</title>
-    @vite(["resources/css/app.css", "resources/js/app.js"])
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>@yield('title') - SOTO Admin</title>
+    <link rel="preconnect" href="https://fonts.bunny.net">
+    <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700&display=swap" rel="stylesheet" />
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="h-full flex items-center justify-center p-4 bg-green-50 dark:bg-gray-950 transition-colors duration-200">
-    <div class="w-full max-w-md">
-        {{-- Logo --}}
-        <div class="text-center mb-8">
-            <div class="mx-auto w-14 h-14 rounded-2xl bg-green-600 flex items-center justify-center text-white text-2xl font-bold shadow-lg">S</div>
-            <h1 class="mt-4 text-2xl font-bold text-gray-900 dark:text-white">SOTO Admin</h1>
-            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Sampah Otomatis Tukar Poin</p>
+<body class="h-full flex flex-col items-center justify-center p-4 font-sans antialiased text-gray-900 bg-gray-50">
+    
+    <div class="w-full max-w-[400px]">
+        {{-- Logo (Sleek) --}}
+        <div class="flex items-center gap-3 mb-8 justify-center">
+            <div class="w-8 h-8 rounded bg-emerald-600 flex items-center justify-center text-white font-bold text-sm shadow-sm">S</div>
+            <span class="text-xl font-semibold tracking-tight text-gray-900 ">SOTO Admin</span>
         </div>
 
         {{-- Card --}}
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl ring-1 ring-gray-900/5 dark:ring-gray-700 overflow-hidden">
-            <div class="p-6">
-                @yield("content")
+        <div class="bg-white  rounded-lg border border-gray-200  shadow-sm overflow-hidden">
+            <div class="px-6 py-8 sm:p-8">
+                @yield('content')
             </div>
         </div>
+        
+        <p class="text-center text-xs text-gray-500  mt-8">
+            &copy; {{ date('Y') }} SOTO (Sampah Otomatis Tukar Poin)
+        </p>
     </div>
-</body>
+
+    </body>
 </html>
+
+

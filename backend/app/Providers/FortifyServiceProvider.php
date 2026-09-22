@@ -25,18 +25,19 @@ class FortifyServiceProvider extends ServiceProvider
         Fortify::resetUserPasswordsUsing(ResetUserPassword::class);
 
         // Redirect to /dashboard after login
-        Fortify::loginView(fn() => view("auth.login"));
-        Fortify::redirects("login", "/dashboard");
+        Fortify::loginView(fn () => view('auth.login'));
+        Fortify::redirects('login', '/dashboard');
 
-        RateLimiter::for("login", function (Request $request) {
+        RateLimiter::for('login', function (Request $request) {
             $throttleKey = Str::transliterate(
-                Str::lower($request->input(Fortify::username())) . "|" . $request->ip()
+                Str::lower($request->input(Fortify::username())).'|'.$request->ip()
             );
+
             return Limit::perMinute(5)->by($throttleKey);
         });
 
-        RateLimiter::for("two-factor", function (Request $request) {
-            return Limit::perMinute(5)->by($request->session()->get("login.id"));
+        RateLimiter::for('two-factor', function (Request $request) {
+            return Limit::perMinute(5)->by($request->session()->get('login.id'));
         });
     }
 }

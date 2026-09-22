@@ -28,39 +28,39 @@ class InternalTelemetryController extends Controller
     public function update(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'machine_id'       => ['required', 'integer'],
-            'kapasitas'        => ['required', 'integer', 'min:0', 'max:100'],
+            'machine_id' => ['required', 'integer'],
+            'kapasitas' => ['required', 'integer', 'min:0', 'max:100'],
             'tegangan_baterai' => ['nullable', 'numeric'],
-            'status_online'    => ['required', 'boolean'],
+            'status_online' => ['required', 'boolean'],
         ]);
 
         $machine = Machine::find($validated['machine_id']);
-        if (!$machine) {
+        if (! $machine) {
             return response()->json(['error' => 'Machine not found'], 404);
         }
 
         // Update machine current state
         $machine->update([
             'kapasitas_terkini' => $validated['kapasitas'],
-            'tegangan_baterai'  => $validated['tegangan_baterai'],
-            'status_online'     => $validated['status_online'],
+            'tegangan_baterai' => $validated['tegangan_baterai'],
+            'status_online' => $validated['status_online'],
         ]);
 
         // Log time-series
         LogCapacity::create([
-            'machine_id'       => $machine->id,
+            'machine_id' => $machine->id,
             'persen_kapasitas' => $validated['kapasitas'],
             'tegangan_baterai' => $validated['tegangan_baterai'],
-            'created_at'       => now(),
+            'created_at' => now(),
         ]);
 
         // Broadcast to dashboard
         event(new NodeTelemetryUpdated(
-            machineId:       $machine->id,
-            kapasitas:       $validated['kapasitas'],
-            statusOnline:    $validated['status_online'],
+            machineId: $machine->id,
+            kapasitas: $validated['kapasitas'],
+            statusOnline: $validated['status_online'],
             teganganBaterai: $validated['tegangan_baterai'],
-            namaLokasi:      $machine->nama_lokasi,
+            namaLokasi: $machine->nama_lokasi,
         ));
 
         // Trigger TSP if threshold reached

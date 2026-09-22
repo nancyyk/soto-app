@@ -1,8 +1,8 @@
 <div class="space-y-6">
     <div class="flex items-center justify-between">
         <div>
-            <h2 class="text-base font-semibold text-gray-800 dark:text-gray-100">Optimasi Rute TSP</h2>
-            <p class="text-sm text-gray-500 dark:text-gray-400">Rute pengangkutan node kapasitas &ge; threshold</p>
+            <h2 class="text-base font-semibold text-gray-800 ">Optimasi Rute TSP</h2>
+            <p class="text-sm text-gray-500 ">Rute pengangkutan node kapasitas &ge; threshold</p>
         </div>
         <button wire:click="recalculate" wire:loading.attr="disabled" class="btn-primary">
             <svg class="w-4 h-4 {{ $calculating ? "animate-spin" : "" }}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -13,13 +13,13 @@
     </div>
 
     @if(session("info"))
-        <div class="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 text-sm text-blue-700 dark:text-blue-400">{{ session("info") }}</div>
+        <div class="p-3 rounded-lg bg-blue-50  border border-blue-200  text-sm text-blue-700 ">{{ session("info") }}</div>
     @endif
 
     {{-- Peta Leaflet --}}
     <div class="card">
-        <div class="p-4 border-b border-gray-100 dark:border-gray-700">
-            <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300">Peta Rute</h3>
+        <div class="p-4 border-b border-gray-100 ">
+            <h3 class="text-sm font-semibold text-gray-700 ">Peta Rute</h3>
         </div>
         <div id="rute-map" class="h-96 z-0" wire:ignore></div>
     </div>
@@ -27,43 +27,43 @@
     @if($latestRoute)
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div class="card p-4 text-center">
-            <p class="text-2xl font-bold text-green-600 dark:text-green-400">{{ number_format($latestRoute->total_distance_km, 1) }} km</p>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Total Jarak</p>
+            <p class="text-2xl font-bold text-green-600 ">{{ number_format($latestRoute->total_distance_km, 1) }} km</p>
+            <p class="text-xs text-gray-500  mt-1">Total Jarak</p>
         </div>
         <div class="card p-4 text-center">
-            <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ $latestRoute->total_duration_min }} menit</p>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Estimasi Waktu</p>
+            <p class="text-2xl font-bold text-blue-600 ">{{ $latestRoute->total_duration_min }} menit</p>
+            <p class="text-xs text-gray-500  mt-1">Estimasi Waktu</p>
         </div>
         <div class="card p-4 text-center">
-            <p class="text-2xl font-bold text-gray-700 dark:text-gray-200">{{ $latestRoute->stops->count() }}</p>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Jumlah Stop</p>
+            <p class="text-2xl font-bold text-gray-700 ">{{ $latestRoute->stops->count() }}</p>
+            <p class="text-xs text-gray-500  mt-1">Jumlah Stop</p>
         </div>
     </div>
 
     <div class="card">
         <div class="p-5">
-            <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Urutan Kunjungan</h3>
+            <h3 class="text-sm font-semibold text-gray-700  mb-4">Urutan Kunjungan</h3>
             <ol class="space-y-2">
                 <li class="flex items-center gap-3">
                     <span class="w-7 h-7 rounded-full bg-green-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">D</span>
-                    <span class="text-sm text-gray-700 dark:text-gray-300">Pos Pengangkutan (Depot)</span>
+                    <span class="text-sm text-gray-700 ">Pos Pengangkutan (Depot)</span>
                 </li>
                 @foreach($latestRoute->stops->sortBy("urutan") as $stop)
                 <li class="flex items-center gap-3">
-                    <span class="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-bold flex items-center justify-center flex-shrink-0">{{ $loop->iteration }}</span>
-                    <span class="text-sm text-gray-700 dark:text-gray-300">{{ $stop->machine->nama_lokasi }}</span>
+                    <span class="w-7 h-7 rounded-full bg-gray-200  text-gray-700  text-xs font-bold flex items-center justify-center flex-shrink-0">{{ $loop->iteration }}</span>
+                    <span class="text-sm text-gray-700 ">{{ $stop->machine->nama_lokasi }}</span>
                     <span class="{{ $stop->machine->kapasitas_terkini >= 80 ? "badge-red" : "badge-yellow" }} ml-auto">{{ $stop->machine->kapasitas_terkini }}%</span>
                 </li>
                 @endforeach
                 <li class="flex items-center gap-3">
                     <span class="w-7 h-7 rounded-full bg-green-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">D</span>
-                    <span class="text-sm text-gray-500 dark:text-gray-400">Kembali ke Depot</span>
+                    <span class="text-sm text-gray-500 ">Kembali ke Depot</span>
                 </li>
             </ol>
         </div>
     </div>
     @else
-        <div class="card p-8 text-center text-gray-400 dark:text-gray-500 text-sm">
+        <div class="card p-8 text-center text-gray-400  text-sm">
             Belum ada rute tersimpan. Klik "Hitung Ulang Rute" untuk memulai kalkulasi TSP.
         </div>
     @endif
@@ -121,3 +121,4 @@
 })();
 </script>
 @endpush
+

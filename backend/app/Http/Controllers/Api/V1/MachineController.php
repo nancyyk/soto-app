@@ -29,7 +29,8 @@ class MachineController extends Controller
      */
     public function show(Machine $machine): JsonResponse
     {
-        $machine->load(['logCapacity' => fn($q) => $q->where('created_at', '>=', now()->subHours(24))->latest()]);
+        $machine->load(['logCapacity' => fn ($q) => $q->where('created_at', '>=', now()->subHours(24))->latest()]);
+
         return response()->json($machine);
     }
 
@@ -37,11 +38,12 @@ class MachineController extends Controller
      * Set kapasitas manual untuk node simulasi.
      *
      * @urlParam id integer required ID mesin simulasi. Example: 2
+     *
      * @bodyParam kapasitas integer required Nilai kapasitas 0-100. Example: 85
      */
     public function simulateCapacity(Request $request, Machine $machine): JsonResponse
     {
-        if (!$machine->is_simulation) {
+        if (! $machine->is_simulation) {
             return response()->json(['error' => 'Hanya node simulasi yang dapat diubah secara manual'], 422);
         }
 

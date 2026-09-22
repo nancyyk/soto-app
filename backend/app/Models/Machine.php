@@ -21,12 +21,12 @@ class Machine extends Model
     protected function casts(): array
     {
         return [
-            'latitude'           => 'float',
-            'longitude'          => 'float',
-            'is_simulation'      => 'boolean',
-            'status_online'      => 'boolean',
-            'kapasitas_terkini'  => 'integer',
-            'tegangan_baterai'   => 'decimal:2',
+            'latitude' => 'float',
+            'longitude' => 'float',
+            'is_simulation' => 'boolean',
+            'status_online' => 'boolean',
+            'kapasitas_terkini' => 'integer',
+            'tegangan_baterai' => 'decimal:2',
             'threshold_capacity' => 'integer',
         ];
     }

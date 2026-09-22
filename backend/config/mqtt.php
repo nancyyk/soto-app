@@ -12,12 +12,12 @@ return [
     |
     */
 
-    'host'      => env('MQTT_HOST', 'localhost'),
-    'port'      => (int) env('MQTT_PORT', 8883),
-    'username'  => env('MQTT_USERNAME', ''),
-    'password'  => env('MQTT_PASSWORD', ''),
-    'tls'       => (bool) env('MQTT_TLS', true),
-    'client_id' => env('MQTT_CLIENT_ID', 'laravel-soto-' . gethostname()),
+    'host' => env('MQTT_HOST', 'localhost'),
+    'port' => (int) env('MQTT_PORT', 8883),
+    'username' => env('MQTT_USERNAME', ''),
+    'password' => env('MQTT_PASSWORD', ''),
+    'tls' => (bool) env('MQTT_TLS', true),
+    'client_id' => env('MQTT_CLIENT_ID', 'laravel-soto-'.gethostname()),
 
     /*
     |--------------------------------------------------------------------------
@@ -31,7 +31,7 @@ return [
     */
 
     'tls_settings' => [
-        'verify_peer'      => true,
+        'verify_peer' => true,
         'verify_peer_name' => true,
     ],
 
@@ -41,8 +41,8 @@ return [
     |--------------------------------------------------------------------------
     */
 
-    'keep_alive'        => 60,
-    'connect_timeout'   => 30,
-    'socket_timeout'    => 5,
+    'keep_alive' => 60,
+    'connect_timeout' => 30,
+    'socket_timeout' => 5,
 
 ];

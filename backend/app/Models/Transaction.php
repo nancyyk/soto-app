@@ -20,9 +20,9 @@ class Transaction extends Model
     protected function casts(): array
     {
         return [
-            'jumlah_botol'   => 'integer',
+            'jumlah_botol' => 'integer',
             'poin_diperoleh' => 'integer',
-            'created_at'     => 'datetime',
+            'created_at' => 'datetime',
         ];
     }
 

@@ -23,7 +23,7 @@ class LogCapacity extends Model
         return [
             'persen_kapasitas' => 'integer',
             'tegangan_baterai' => 'decimal:2',
-            'created_at'       => 'datetime',
+            'created_at' => 'datetime',
         ];
     }
 
