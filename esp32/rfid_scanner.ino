@@ -8,7 +8,7 @@ const char* ssid = "NAMA_WIFI_ANDA";
 const char* password = "PASSWORD_WIFI_ANDA";
 
 // Ubah ke IP komputer/server Laravel Anda (Gunakan IPv4 yang aktif)
-const char* serverUrl = "http://192.168.1.100:8000/api/v1/rfid/uid"; 
+const char* serverUrl = "http://127.0.0.1:8000/api/v1/rfid/uid"; 
 const char* deviceId = "esp32-soto-01";
 const char* apiKey = "secret_key_123";
 

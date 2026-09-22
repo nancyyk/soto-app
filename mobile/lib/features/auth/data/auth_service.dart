@@ -6,18 +6,24 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
   // Android Emulator : http://10.0.2.2:8000/api/v1
-  // iOS Simulator    : http://localhost:8000/api/v1
   // HP Fisik (LAN)   : http://192.168.x.x:8000/api/v1
-  static const String baseUrl = 'http://localhost:8000/api/v1';
+  static String get baseUrl {
+    if (kIsWeb) return 'http://localhost:8000/api/v1';
+    return 'http://192.168.50.29:8000/api/v1'; // sesuaikan IP Anda
+  }
 
   static const String _tokenKey = 'auth_token';
   static const String _userKey = 'auth_user';
 
   final Dio _dio;
 
+  // ✅ Getter publik supaya service lain bisa reuse Dio ber-token
+  Dio get dio => _dio;
+
   AuthService()
       : _dio = Dio(
           BaseOptions(
+            baseUrl: baseUrl,
             connectTimeout: const Duration(seconds: 15),
             receiveTimeout: const Duration(seconds: 15),
             headers: {
@@ -90,22 +96,16 @@ class AuthService {
   }) async {
     try {
       final response = await _dio.post(
-        '$baseUrl/auth/register',
-        data: {
-          'nama': name,
-          'email': email,
-          'password': password,
-        },
+        '/auth/register',
+        data: {'nama': name, 'email': email, 'password': password},
       );
 
       if (response.statusCode == 201) {
         final data = response.data as Map<String, dynamic>;
-        final token = data['token'];
-        final user = data['user'];
-
-        if (token != null) await saveToken(token.toString());
-        if (user != null) await saveUser(user as Map<String, dynamic>);
-
+        if (data['token'] != null) await saveToken(data['token'].toString());
+        if (data['user'] != null) {
+          await saveUser(data['user'] as Map<String, dynamic>);
+        }
         return data;
       }
       throw Exception('Registrasi gagal (${response.statusCode})');
@@ -123,21 +123,16 @@ class AuthService {
   }) async {
     try {
       final response = await _dio.post(
-        '$baseUrl/auth/login',
-        data: {
-          'email': email,
-          'password': password,
-        },
+        '/auth/login',
+        data: {'email': email, 'password': password},
       );
 
       if (response.statusCode == 200) {
         final data = response.data as Map<String, dynamic>;
-        final token = data['token'];
-        final user = data['user'];
-
-        if (token != null) await saveToken(token.toString());
-        if (user != null) await saveUser(user as Map<String, dynamic>);
-
+        if (data['token'] != null) await saveToken(data['token'].toString());
+        if (data['user'] != null) {
+          await saveUser(data['user'] as Map<String, dynamic>);
+        }
         return data;
       }
       throw Exception('Login gagal (${response.statusCode})');
@@ -153,8 +148,7 @@ class AuthService {
     try {
       final token = await getToken();
       if (token == null || token.isEmpty) return;
-
-      await _dio.post('$baseUrl/auth/logout');
+      await _dio.post('/auth/logout');
     } catch (e) {
       debugPrint('Logout API error: $e');
     } finally {
@@ -172,7 +166,6 @@ class AuthService {
     if (e.type == DioExceptionType.connectionError) {
       return 'Tidak dapat terhubung ke server.';
     }
-
     final data = e.response?.data;
     if (data is Map) {
       if (data['errors'] is Map) {
@@ -183,9 +176,7 @@ class AuthService {
           return firstVal.first.toString();
         }
       }
-      if (data['message'] != null) {
-        return data['message'].toString();
-      }
+      if (data['message'] != null) return data['message'].toString();
     }
     return e.message ?? 'Terjadi kesalahan tidak diketahui.';
   }

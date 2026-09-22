@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:dio/dio.dart';
+
+import '../data/auth_service.dart';
 import '../../rfid/data/rfid_service.dart';
 
 enum RfidState { idle, waiting, success, expired, error }
@@ -16,6 +17,7 @@ class RfidPage extends StatefulWidget {
 class _RfidPageState extends State<RfidPage> {
   RfidState _currentState = RfidState.idle;
   Timer? _pollingTimer;
+  Timer? _timeoutTimer;
   String _errorMessage = '';
 
   late final RfidService _rfidService;
@@ -23,15 +25,18 @@ class _RfidPageState extends State<RfidPage> {
   @override
   void initState() {
     super.initState();
-    // Inisialisasi dio. (Ubah base url sesuaikan dengan host Anda)
-    // Di sistem nyata, lebih baik injeksi authService.dio yang sudah terpasang interceptor Bearer token
-    final dio = Dio(BaseOptions(baseUrl: 'http://10.0.2.2:8000'));
-    _rfidService = RfidService(dio); 
-    
+    // ✅ Pakai Dio dari AuthService (sudah ada interceptor Bearer token)
+    final authService = AuthService();
+    _rfidService = RfidService(authService.dio);
     _startPairing();
   }
 
-  void _startPairing() async {
+  Future<void> _startPairing() async {
+    if (!mounted) return;
+
+    _pollingTimer?.cancel();
+    _timeoutTimer?.cancel();
+
     setState(() {
       _currentState = RfidState.waiting;
       _errorMessage = '';
@@ -39,11 +44,14 @@ class _RfidPageState extends State<RfidPage> {
 
     try {
       await _rfidService.startScan();
+      if (!mounted) return;
       _startPolling();
+      _startTimeout();
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _currentState = RfidState.error;
-        _errorMessage = e.toString();
+        _errorMessage = e.toString().replaceFirst('Exception: ', '');
       });
     }
   }
@@ -51,20 +59,40 @@ class _RfidPageState extends State<RfidPage> {
   void _startPolling() {
     _pollingTimer?.cancel();
     _pollingTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
       final status = await _rfidService.checkStatus();
+      if (!mounted) return;
+
+      debugPrint('RFID poll status: $status');
 
       if (status == 'completed') {
         timer.cancel();
+        _timeoutTimer?.cancel();
         setState(() => _currentState = RfidState.success);
-        
+
         Future.delayed(const Duration(seconds: 2), () {
           if (mounted) context.go('/home');
         });
-      } else if (status == 'expired') {
+      } else if (status == 'expired' || status == 'failed') {
         timer.cancel();
+        _timeoutTimer?.cancel();
         setState(() => _currentState = RfidState.expired);
-      } else if (status == 'error') {
-        // Abaikan sementara jika timeout jaringan
+      }
+      // status == 'pending' atau 'error' → lanjut polling
+    });
+  }
+
+  void _startTimeout() {
+    _timeoutTimer?.cancel();
+    _timeoutTimer = Timer(const Duration(seconds: 30), () {
+      if (!mounted) return;
+      if (_currentState == RfidState.waiting) {
+        _pollingTimer?.cancel();
+        setState(() => _currentState = RfidState.expired);
       }
     });
   }
@@ -72,6 +100,7 @@ class _RfidPageState extends State<RfidPage> {
   @override
   void dispose() {
     _pollingTimer?.cancel();
+    _timeoutTimer?.cancel();
     super.dispose();
   }
 
@@ -105,10 +134,10 @@ class _RfidPageState extends State<RfidPage> {
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(),
+                      color: Colors.black.withValues(alpha: 0.15),
                       blurRadius: 10,
                       offset: const Offset(0, 5),
-                    )
+                    ),
                   ],
                 ),
                 child: _buildContent(),
@@ -130,7 +159,11 @@ class _RfidPageState extends State<RfidPage> {
             const SizedBox(height: 24),
             const Text(
               "Menunggu Kartu...",
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF2D6A4F)),
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF2D6A4F),
+              ),
             ),
             const SizedBox(height: 8),
             const Text(
@@ -148,7 +181,11 @@ class _RfidPageState extends State<RfidPage> {
             const SizedBox(height: 24),
             const Text(
               "Berhasil!",
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green),
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.green,
+              ),
             ),
             const SizedBox(height: 8),
             const Text(
@@ -166,7 +203,11 @@ class _RfidPageState extends State<RfidPage> {
             const SizedBox(height: 24),
             const Text(
               "Waktu Habis",
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.orange),
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.orange,
+              ),
             ),
             const SizedBox(height: 8),
             const Text(
@@ -180,10 +221,15 @@ class _RfidPageState extends State<RfidPage> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF2D6A4F),
                 minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
-              child: const Text("Coba Lagi", style: TextStyle(color: Colors.white)),
-            )
+              child: const Text(
+                "Coba Lagi",
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
           ],
         );
 
@@ -194,7 +240,11 @@ class _RfidPageState extends State<RfidPage> {
             const SizedBox(height: 24),
             const Text(
               "Terjadi Kesalahan",
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.red),
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.red,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
@@ -208,10 +258,15 @@ class _RfidPageState extends State<RfidPage> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF2D6A4F),
                 minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
-              child: const Text("Coba Lagi", style: TextStyle(color: Colors.white)),
-            )
+              child: const Text(
+                "Coba Lagi",
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
           ],
         );
 
