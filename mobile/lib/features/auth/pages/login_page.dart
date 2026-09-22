@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_text_field.dart';
+import '../data/auth_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -15,12 +16,48 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+  final AuthService _authService = AuthService();
+  bool _isLoading = false;
 
   @override
   void dispose() {
     emailController.dispose();
     passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleLogin() async {
+    if (emailController.text.trim().isEmpty ||
+        passwordController.text.isEmpty) {
+      _showSnack('Email dan password tidak boleh kosong');
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+    setState(() => _isLoading = true);
+
+    try {
+      await _authService.login(
+        email: emailController.text.trim(),
+        password: passwordController.text,
+      );
+
+      if (mounted) {
+        context.go(AppRouter.rfid);
+      }
+    } catch (e) {
+      if (mounted) {
+        _showSnack(e.toString().replaceFirst('Exception: ', ''));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _showSnack(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -30,19 +67,14 @@ class _LoginPageState extends State<LoginPage> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // Background sesuai Figma
             Image.asset(
               'assets/images/background-2.jpg',
               fit: BoxFit.cover,
             ),
-
-            // Area form
             SafeArea(
               child: Center(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxWidth: 420,
-                  ),
+                  constraints: const BoxConstraints(maxWidth: 420),
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 34,
@@ -50,10 +82,7 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     child: Column(
                       children: [
-                        // Jarak dari bagian atas
                         const SizedBox(height: 80),
-
-                        // Judul
                         const Text(
                           'Masuk',
                           style: TextStyle(
@@ -62,7 +91,6 @@ class _LoginPageState extends State<LoginPage> {
                             color: Color(0xFF111111),
                           ),
                         ),
-
                         const SizedBox(height: 62),
 
                         // Email
@@ -77,9 +105,7 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                           ),
                         ),
-
                         const SizedBox(height: 6),
-
                         AppTextField(
                           controller: emailController,
                           hint: 'Email',
@@ -100,9 +126,7 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                           ),
                         ),
-
                         const SizedBox(height: 6),
-
                         AppTextField(
                           controller: passwordController,
                           hint: 'Password',
@@ -111,7 +135,7 @@ class _LoginPageState extends State<LoginPage> {
 
                         const SizedBox(height: 10),
 
-                        // Daftar
+                        // Link daftar
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -122,11 +146,10 @@ class _LoginPageState extends State<LoginPage> {
                                 color: Color(0xFF111111),
                               ),
                             ),
-
                             TextButton(
-                              onPressed: () {
-                                context.go(AppRouter.register);
-                              },
+                              onPressed: _isLoading
+                                  ? null
+                                  : () => context.go(AppRouter.register),
                               style: TextButton.styleFrom(
                                 padding: const EdgeInsets.only(left: 4),
                                 minimumSize: Size.zero,
@@ -147,15 +170,13 @@ class _LoginPageState extends State<LoginPage> {
 
                         const SizedBox(height: 10),
 
-                        // Login Button
+                        // Tombol Login
                         SizedBox(
                           width: double.infinity,
                           height: 44,
                           child: AppButton(
-                            text: 'Login',
-                            onPressed: () {
-                              context.go(AppRouter.rfid);
-                            },
+                            text: _isLoading ? 'Loading...' : 'Login',
+                            onPressed: _isLoading ? () {} : _handleLogin,
                             backgroundColor: const Color(0xFF2D6A4F),
                             textColor: Colors.white,
                             height: 44,

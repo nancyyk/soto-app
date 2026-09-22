@@ -3,11 +3,39 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/router/app_router.dart';
 import '../../../core/widgets/bottom_nav_bar.dart';
+import '../../auth/data/auth_service.dart';
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
 
-  void _showLogoutDialog(BuildContext context) {
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  final AuthService _authService = AuthService();
+
+  String _name = 'Memuat...';
+  String _email = '';
+  String _role = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUser();
+  }
+
+  Future<void> _loadUser() async {
+    final user = await _authService.getUser();
+    if (!mounted) return;
+    setState(() {
+      _name = user?['nama'] ?? user?['name'] ?? 'User';
+      _email = user?['email'] ?? '';
+      _role = user?['role'] ?? '';
+    });
+  }
+
+  void _showLogoutDialog() {
     showDialog(
       context: context,
       builder: (dialogContext) {
@@ -40,8 +68,27 @@ class ProfilePage extends StatelessWidget {
               ),
             ),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 Navigator.pop(dialogContext);
+
+                // Tampilkan loading
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (_) => const Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                );
+
+                // Panggil API logout + hapus token lokal
+                await _authService.logout();
+
+                if (!mounted) return;
+
+                // Tutup loading
+                Navigator.of(context, rootNavigator: true).pop();
+
+                // Kembali ke halaman login
                 context.go(AppRouter.login);
               },
               style: ElevatedButton.styleFrom(
@@ -80,154 +127,170 @@ class ProfilePage extends StatelessWidget {
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 30, 20, 24),
-        child: Column(
-          children: [
-            // FOTO PROFILE
-            Container(
-              width: 88,
-              height: 88,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFF2D6A4F), width: 3),
-              ),
-              child: ClipOval(
-                child: Image.asset(
-                  'assets/images/profile.png',
-                  width: 88,
-                  height: 88,
-                  fit: BoxFit.cover,
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            const Text(
-              'Andi Setiawan',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF222222),
-              ),
-            ),
-
-            const SizedBox(height: 5),
-
-            const Text(
-              'andi@gmail.com',
-              style: TextStyle(fontSize: 13, color: Color(0xFF777777)),
-            ),
-
-            const SizedBox(height: 4),
-
-            const Text(
-              '098778965678',
-              style: TextStyle(fontSize: 13, color: Color(0xFF777777)),
-            ),
-
-            const SizedBox(height: 28),
-
-            // RFID CARD
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: const Color(0xFF2D6A4F),
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: const [
-                      Icon(Icons.contactless, color: Colors.white, size: 24),
-                      SizedBox(width: 10),
-                      Text(
-                        'RFID Card',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      Spacer(),
-                      Icon(Icons.check_circle, color: Colors.white, size: 20),
-                    ],
+      body: RefreshIndicator(
+        onRefresh: _loadUser,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 30, 20, 24),
+          child: Column(
+            children: [
+              // Foto profil
+              Container(
+                width: 88,
+                height: 88,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: const Color(0xFF2D6A4F),
+                    width: 3,
                   ),
-                  const SizedBox(height: 18),
-                  const Text(
-                    '1234 4567 6789 9876',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 19,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1.5,
+                ),
+                child: ClipOval(
+                  child: Image.asset(
+                    'assets/images/profile.png',
+                    width: 88,
+                    height: 88,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => const Icon(
+                      Icons.person,
+                      size: 48,
+                      color: Color(0xFF2D6A4F),
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Terhubung',
-                    style: TextStyle(color: Colors.white70, fontSize: 12),
-                  ),
-                ],
+                ),
               ),
-            ),
+              const SizedBox(height: 12),
 
-            const SizedBox(height: 28),
+              // Nama
+              Text(
+                _name,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF222222),
+                ),
+              ),
+              const SizedBox(height: 5),
 
-            // MENU PROFILE
-            _ProfileMenu(
-              icon: Icons.person_outline,
-              title: 'Edit Profile',
-              onTap: () {
-                context.push(AppRouter.editProfile);
-              },
-            ),
+              // Email
+              if (_email.isNotEmpty)
+                Text(
+                  _email,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF777777),
+                  ),
+                ),
 
-            _ProfileMenu(
-              icon: Icons.lock_outline,
-              title: 'Ganti Password',
-              onTap: () {
-                context.push(AppRouter.changePassword);
-              },
-            ),
+              // Role
+              if (_role.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'Role: ${_role.toUpperCase()}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF2D6A4F),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
 
-            _ProfileMenu(
-              icon: Icons.history,
-              title: 'Riwayat Saya',
-              onTap: () {
-                context.go(AppRouter.history);
-              },
-            ),
+              const SizedBox(height: 28),
 
-            _ProfileMenu(
-              icon: Icons.settings_outlined,
-              title: 'Pengaturan',
-              onTap: () {
-                context.push(AppRouter.settings);
-              },
-            ),
+              // RFID Card
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2D6A4F),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.contactless,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                        SizedBox(width: 10),
+                        Text(
+                          'RFID Card',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Spacer(),
+                        Icon(
+                          Icons.check_circle,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 18),
+                    Text(
+                      '1234 4567 6789 9876',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 19,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Terhubung',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
-            _ProfileMenu(
-              icon: Icons.info_outline,
-              title: 'Tentang Aplikasi',
-              onTap: () {
-                context.push(AppRouter.about);
-              },
-            ),
+              const SizedBox(height: 28),
 
-            _ProfileMenu(
-              icon: Icons.logout,
-              title: 'Logout',
-              textColor: Colors.red,
-              iconColor: Colors.red,
-              onTap: () {
-                _showLogoutDialog(context);
-              },
-            ),
-          ],
+              // Menu Profile
+              _ProfileMenu(
+                icon: Icons.person_outline,
+                title: 'Edit Profile',
+                onTap: () => context.push(AppRouter.editProfile),
+              ),
+              _ProfileMenu(
+                icon: Icons.lock_outline,
+                title: 'Ganti Password',
+                onTap: () => context.push(AppRouter.changePassword),
+              ),
+              _ProfileMenu(
+                icon: Icons.history,
+                title: 'Riwayat Saya',
+                onTap: () => context.go(AppRouter.history),
+              ),
+              _ProfileMenu(
+                icon: Icons.settings_outlined,
+                title: 'Pengaturan',
+                onTap: () => context.push(AppRouter.settings),
+              ),
+              _ProfileMenu(
+                icon: Icons.info_outline,
+                title: 'Tentang Aplikasi',
+                onTap: () => context.push(AppRouter.about),
+              ),
+              _ProfileMenu(
+                icon: Icons.logout,
+                title: 'Logout',
+                textColor: Colors.red,
+                iconColor: Colors.red,
+                onTap: _showLogoutDialog,
+              ),
+            ],
+          ),
         ),
       ),
       bottomNavigationBar: const BottomNavBar(),
@@ -260,7 +323,8 @@ class _ProfileMenu extends StatelessWidget {
       ),
       child: ListTile(
         onTap: onTap,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
         leading: Icon(icon, color: iconColor, size: 22),
         title: Text(
           title,
@@ -270,7 +334,10 @@ class _ProfileMenu extends StatelessWidget {
             color: textColor,
           ),
         ),
-        trailing: const Icon(Icons.chevron_right, color: Color(0xFFAAAAAA)),
+        trailing: const Icon(
+          Icons.chevron_right,
+          color: Color(0xFFAAAAAA),
+        ),
       ),
     );
   }

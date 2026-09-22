@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_text_field.dart';
+import '../data/auth_service.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -18,6 +19,8 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController confirmPasswordController =
       TextEditingController();
+  final AuthService _authService = AuthService();
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -28,6 +31,55 @@ class _RegisterPageState extends State<RegisterPage> {
     super.dispose();
   }
 
+  Future<void> _handleRegister() async {
+    final name = fullNameController.text.trim();
+    final email = emailController.text.trim();
+    final pass = passwordController.text;
+    final confirm = confirmPasswordController.text;
+
+    if (name.isEmpty || email.isEmpty || pass.isEmpty || confirm.isEmpty) {
+      _showSnack('Semua field harus diisi');
+      return;
+    }
+
+    if (pass.length < 8) {
+      _showSnack('Password minimal 8 karakter');
+      return;
+    }
+
+    if (pass != confirm) {
+      _showSnack('Password tidak cocok');
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+    setState(() => _isLoading = true);
+
+    try {
+      await _authService.register(
+        name: name,
+        email: email,
+        password: pass,
+      );
+
+      if (mounted) {
+        context.go(AppRouter.rfid);
+      }
+    } catch (e) {
+      if (mounted) {
+        _showSnack(e.toString().replaceFirst('Exception: ', ''));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _showSnack(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -35,19 +87,14 @@ class _RegisterPageState extends State<RegisterPage> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // Background sesuai Figma
             Image.asset(
               'assets/images/background-2.jpg',
               fit: BoxFit.cover,
             ),
-
-            // Form Register
             SafeArea(
               child: Center(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxWidth: 420,
-                  ),
+                  constraints: const BoxConstraints(maxWidth: 420),
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 34,
@@ -56,8 +103,6 @@ class _RegisterPageState extends State<RegisterPage> {
                     child: Column(
                       children: [
                         const SizedBox(height: 18),
-
-                        // Judul
                         const Text(
                           'Daftar',
                           style: TextStyle(
@@ -66,7 +111,6 @@ class _RegisterPageState extends State<RegisterPage> {
                             color: Color(0xFF111111),
                           ),
                         ),
-
                         const SizedBox(height: 22),
 
                         // Nama Lengkap
@@ -81,9 +125,7 @@ class _RegisterPageState extends State<RegisterPage> {
                             ),
                           ),
                         ),
-
                         const SizedBox(height: 6),
-
                         AppTextField(
                           controller: fullNameController,
                           hint: 'Nama lengkap',
@@ -103,9 +145,7 @@ class _RegisterPageState extends State<RegisterPage> {
                             ),
                           ),
                         ),
-
                         const SizedBox(height: 6),
-
                         AppTextField(
                           controller: emailController,
                           hint: 'Email',
@@ -126,12 +166,10 @@ class _RegisterPageState extends State<RegisterPage> {
                             ),
                           ),
                         ),
-
                         const SizedBox(height: 6),
-
                         AppTextField(
                           controller: passwordController,
-                          hint: 'Password',
+                          hint: 'Password (min. 8 karakter)',
                           obscureText: true,
                         ),
 
@@ -149,9 +187,7 @@ class _RegisterPageState extends State<RegisterPage> {
                             ),
                           ),
                         ),
-
                         const SizedBox(height: 6),
-
                         AppTextField(
                           controller: confirmPasswordController,
                           hint: 'Konfirmasi password',
@@ -160,7 +196,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
                         const SizedBox(height: 10),
 
-                        // Login
+                        // Link ke Login
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -171,11 +207,10 @@ class _RegisterPageState extends State<RegisterPage> {
                                 color: Color(0xFF111111),
                               ),
                             ),
-
                             TextButton(
-                              onPressed: () {
-                                context.go(AppRouter.login);
-                              },
+                              onPressed: _isLoading
+                                  ? null
+                                  : () => context.go(AppRouter.login),
                               style: TextButton.styleFrom(
                                 padding: const EdgeInsets.only(left: 4),
                                 minimumSize: Size.zero,
@@ -196,15 +231,14 @@ class _RegisterPageState extends State<RegisterPage> {
 
                         const SizedBox(height: 10),
 
-                        // Register Button
+                        // Tombol Register
                         SizedBox(
                           width: double.infinity,
                           height: 44,
                           child: AppButton(
-                            text: 'Register',
-                            onPressed: () {
-                              context.go(AppRouter.rfid);
-                            },
+                            text: _isLoading ? 'Loading...' : 'Register',
+                            onPressed:
+                                _isLoading ? () {} : _handleRegister,
                             backgroundColor: const Color(0xFF2D6A4F),
                             textColor: Colors.white,
                             height: 44,
