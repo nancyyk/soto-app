@@ -84,7 +84,7 @@ class AppRouter {
       GoRoute(
         path: rfid,
         builder: (BuildContext context, GoRouterState state) {
-          return const RFIDPage();
+          return const RfidPage();
         },
       ),
       GoRoute(
