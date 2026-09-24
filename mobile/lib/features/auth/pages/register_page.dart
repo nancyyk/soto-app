@@ -56,14 +56,19 @@ class _RegisterPageState extends State<RegisterPage> {
     setState(() => _isLoading = true);
 
     try {
-      await _authService.register(
+      final response = await _authService.register(
         name: name,
         email: email,
         password: pass,
       );
 
       if (mounted) {
-        context.go(AppRouter.rfid);
+        final user = response['user'];
+        if (user != null && user['rfid_uid'] != null && user['rfid_uid'].toString().isNotEmpty) {
+          context.go(AppRouter.home);
+        } else {
+          context.go(AppRouter.rfid);
+        }
       }
     } catch (e) {
       if (mounted) {

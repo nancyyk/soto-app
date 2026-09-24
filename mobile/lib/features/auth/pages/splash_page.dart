@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../data/auth_service.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -32,8 +33,22 @@ class _SplashPageState extends State<SplashPage>
 
     _controller.forward();
 
-    _navigationTimer = Timer(const Duration(milliseconds: 2500), () {
-      if (mounted) {
+    _navigationTimer = Timer(const Duration(milliseconds: 2500), () async {
+      if (!mounted) return;
+      
+      final authService = AuthService();
+      final isLoggedIn = await authService.isLoggedIn();
+      
+      if (!mounted) return;
+      
+      if (isLoggedIn) {
+        final user = await authService.getUser();
+        if (user != null && user['rfid_uid'] != null && user['rfid_uid'].toString().isNotEmpty) {
+          context.go('/home');
+        } else {
+          context.go('/rfid');
+        }
+      } else {
         context.go('/onboarding');
       }
     });

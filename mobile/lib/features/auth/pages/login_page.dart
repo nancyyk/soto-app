@@ -37,13 +37,18 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _isLoading = true);
 
     try {
-      await _authService.login(
+      final response = await _authService.login(
         email: emailController.text.trim(),
         password: passwordController.text,
       );
 
       if (mounted) {
-        context.go(AppRouter.rfid);
+        final user = response['user'];
+        if (user != null && user['rfid_uid'] != null && user['rfid_uid'].toString().isNotEmpty) {
+          context.go(AppRouter.home);
+        } else {
+          context.go(AppRouter.rfid);
+        }
       }
     } catch (e) {
       if (mounted) {

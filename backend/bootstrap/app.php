@@ -1,5 +1,7 @@
 <?php
 
+use App\Console\Commands\MqttListen;
+use App\Console\Commands\MqttRfidListener;
 use App\Http\Middleware\EnsureInternalSecret;
 use App\Http\Middleware\EnsureRole;
 use Illuminate\Foundation\Application;
@@ -20,9 +22,13 @@ return Application::configure(basePath: dirname(__DIR__))
                 ->group(base_path('routes/internal.php'));
         },
     )
+    ->withCommands([
+        MqttListen::class,
+        MqttRfidListener::class,
+    ])
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
-            'role' => EnsureRole::class,
+            'role'            => EnsureRole::class,
             'internal.secret' => EnsureInternalSecret::class,
         ]);
 

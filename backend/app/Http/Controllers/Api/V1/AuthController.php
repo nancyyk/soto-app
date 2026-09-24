@@ -48,6 +48,7 @@ class AuthController extends Controller
                 'id' => $user->id,
                 'nama' => $user->nama,
                 'role' => $user->role,
+                'rfid_uid' => $user->rfid_uid,
             ],
         ], 201);
     }
@@ -83,6 +84,7 @@ class AuthController extends Controller
                 'id' => $user->id,
                 'nama' => $user->nama,
                 'role' => $user->role,
+                'rfid_uid' => $user->rfid_uid,
             ],
         ]);
     }

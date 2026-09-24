@@ -298,7 +298,7 @@ class _RfidPageState extends State<RfidPage> {
                 Center(
                   child: TextButton(
                     onPressed: () {
-                      // TODO: arahkan ke halaman petunjuk
+                      //Arahkan ke halaman petunjuk
                       // context.push('/petunjuk');
                     },
                     child: const Text(
