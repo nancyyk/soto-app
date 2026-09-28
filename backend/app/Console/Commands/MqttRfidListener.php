@@ -138,6 +138,8 @@ class MqttRfidListener extends Command
     }
 
     /**
+     * * Subscribe ke topik UID, CHECK, dan TRANSACTION.
+     */
     private function subscribeAndLoop(): void
     {
         $this->info('[MQTT] Subscribe ke topik UID, CHECK, dan TRANSACTION');
