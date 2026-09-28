@@ -3,8 +3,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/router/app_router.dart';
 import '../../../core/widgets/bottom_nav_bar.dart';
+import '../../auth/data/auth_service.dart';
+import '../data/home_service.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
   static const Color green = Color(0xFF2D6A4F);
@@ -13,7 +15,59 @@ class HomePage extends StatelessWidget {
   static const Color textGrey = Color(0xFF777777);
 
   @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  final _authService = AuthService();
+  final _homeService = HomeService();
+
+  Map<String, dynamic>? _user;
+  int _saldoPoin = 0;
+  int _totalBotol = 0;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    try {
+      final user = await _authService.getUser();
+      if (user != null && user['id'] != null) {
+        final data = await _homeService.getUserPoints(user['id']);
+        if (mounted) {
+          setState(() {
+            _user = user;
+            _saldoPoin = data['saldo_poin'] ?? 0;
+            if (data['transactions'] != null && data['transactions']['data'] != null) {
+              final txs = data['transactions']['data'] as List;
+              _totalBotol = txs.fold(0, (sum, item) => sum + (item['jumlah_botol'] as int? ?? 0));
+            }
+            _isLoading = false;
+          });
+        }
+      } else {
+        if (mounted) setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      debugPrint('Error loading home data: $e');
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator(color: HomePage.green)),
+      );
+    }
+
+    final userName = _user?['nama'] ?? 'Pengguna';
+
     return Scaffold(
       backgroundColor: Colors.white,
       bottomNavigationBar: const BottomNavBar(),
@@ -22,143 +76,66 @@ class HomePage extends StatelessWidget {
           builder: (context, constraints) {
             final horizontalPadding = constraints.maxWidth < 360 ? 14.0 : 20.0;
 
-            return SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              padding: EdgeInsets.fromLTRB(
-                horizontalPadding,
-                34,
-                horizontalPadding,
-                24,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      ClipOval(
-                        child: Image.asset(
-                          'assets/images/profile.png',
-                          width: 46,
-                          height: 46,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              width: 46,
-                              height: 46,
-                              color: const Color(0xFFE8C39E),
-                              alignment: Alignment.center,
-                              child: const Icon(
-                                Icons.person,
-                                color: Colors.white,
-                                size: 28,
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-
-                      const SizedBox(width: 11),
-
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Halo, Andi',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w700,
-                                color: textDark,
-                              ),
-                            ),
-                            SizedBox(height: 3),
-                            Text(
-                              'Level 3 · Peduli Bumi',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(fontSize: 12, color: textGrey),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(width: 8),
-
-                      InkWell(
-                        onTap: () => context.push(AppRouter.notification),
-                        borderRadius: BorderRadius.circular(20),
-                        child: const Padding(
-                          padding: EdgeInsets.all(6),
-                          child: Icon(
-                            Icons.notifications_none_rounded,
-                            size: 26,
-                            color: textDark,
+            return RefreshIndicator(
+              onRefresh: _loadData,
+              color: HomePage.green,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                padding: EdgeInsets.fromLTRB(
+                  horizontalPadding,
+                  34,
+                  horizontalPadding,
+                  24,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        ClipOval(
+                          child: Image.asset(
+                            'assets/images/profile.png',
+                            width: 46,
+                            height: 46,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                width: 46,
+                                height: 46,
+                                color: const Color(0xFFE8C39E),
+                                alignment: Alignment.center,
+                                child: const Icon(
+                                  Icons.person,
+                                  color: Colors.white,
+                                  size: 28,
+                                ),
+                              );
+                            },
                           ),
                         ),
-                      ),
-                    ],
-                  ),
 
-                  const SizedBox(height: 16),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 15,
-                      vertical: 11,
-                    ),
-                    decoration: BoxDecoration(
-                      color: lightGreen,
-                      borderRadius: BorderRadius.circular(9),
-                    ),
-                    child: Row(
-                      children: [
-                        const Expanded(
+                        const SizedBox(width: 11),
+
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Saldo Poin',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: green,
-                                  fontWeight: FontWeight.w500,
+                                'Halo, $userName',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w700,
+                                  color: HomePage.textDark,
                                 ),
                               ),
-                              SizedBox(height: 4),
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    '1.250',
-                                    style: TextStyle(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.w700,
-                                      color: textDark,
-                                    ),
-                                  ),
-                                  SizedBox(width: 5),
-                                  Padding(
-                                    padding: EdgeInsets.only(bottom: 3),
-                                    child: Text(
-                                      'Poin',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: textDark,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              SizedBox(height: 1),
-                              Text(
-                                '+120 poin hari ini',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: green,
-                                  fontWeight: FontWeight.w500,
-                                ),
+                              const SizedBox(height: 3),
+                              const Text(
+                                'Level 1 · Pemula',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(fontSize: 12, color: HomePage.textGrey),
                               ),
                             ],
                           ),
@@ -166,273 +143,354 @@ class HomePage extends StatelessWidget {
 
                         const SizedBox(width: 8),
 
-                        Image.asset(
-                          'assets/images/botol1.png',
-                          width: 72,
-                          height: 72,
-                          fit: BoxFit.contain,
-                          errorBuilder: (context, error, stackTrace) {
-                            return const SizedBox(
-                              width: 72,
-                              height: 72,
-                              child: Icon(
-                                Icons.recycling,
-                                size: 48,
-                                color: green,
-                              ),
-                            );
-                          },
+                        InkWell(
+                          onTap: () => context.push(AppRouter.notification),
+                          borderRadius: BorderRadius.circular(20),
+                          child: const Padding(
+                            padding: EdgeInsets.all(6),
+                            child: Icon(
+                              Icons.notifications_none_rounded,
+                              size: 26,
+                              color: HomePage.textDark,
+                            ),
+                          ),
                         ),
                       ],
                     ),
-                  ),
 
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      const Expanded(
-                        child: _InfoCard(
-                          title: 'Botol Ditabung',
-                          value: '86',
-                          suffix: 'Botol',
-                        ),
-                      ),
-
-                      const SizedBox(width: 12),
-
-                      Expanded(
-                        child: Container(
-                          height: 64,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 13,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: const Color(0xFFE1E1E1)),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Progres level',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: textDark,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-
-                              SizedBox(height: 10),
-
-                              ClipRRect(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(10),
-                                ),
-                                child: LinearProgressIndicator(
-                                  value: 0.72,
-                                  minHeight: 5,
-                                  backgroundColor: Color(0xFFE4E4E4),
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    green,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 17),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Flexible(
-                        child: _QuickMenu(
-                          icon: Icons.history,
-                          label: 'Riwayat',
-                          onTap: () {
-                            context.go(AppRouter.history);
-                          },
-                        ),
-                      ),
-                      Flexible(
-                        child: _QuickMenu(
-                          icon: Icons.card_giftcard,
-                          label: 'Reward',
-                          onTap: () {
-                            context.go(AppRouter.reward);
-                          },
-                        ),
-                      ),
-                      Flexible(
-                        child: _QuickMenu(
-                          icon: Icons.location_on_outlined,
-                          label: 'Lokasi Mesin',
-                          onTap: () {
-                            context.push(AppRouter.machine);
-                          },
-                        ),
-                      ),
-                      Flexible(
-                        child: _QuickMenu(
-                          icon: Icons.notifications_none,
-                          label: 'Notifikasi',
-                          onTap: () {
-                            context.push(AppRouter.notification);
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 17),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.fromLTRB(13, 12, 13, 12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8F8F8),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Expanded(
-                              child: Text(
-                                'Mesin Terdekat',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                  color: textDark,
-                                ),
-                              ),
-                            ),
-
-                            const SizedBox(width: 8),
-
-                            GestureDetector(
-                              onTap: () {
-                                context.push(AppRouter.machine);
-                              },
-                              child: const Text(
-                                'Lihat Semua',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: green,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 9),
-
-                        const Text(
-                          '2 mesin di dekat kamu',
-                          style: TextStyle(fontSize: 12, color: textGrey),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 17),
-                  const Text(
-                    'Riwayat Terakhir',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: textDark,
-                    ),
-                  ),
-
-                  const SizedBox(height: 9),
-
-                  InkWell(
-                    onTap: () {
-                      context.go(AppRouter.history);
-                    },
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
+                    const SizedBox(height: 16),
+                    Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(13),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: const Color(0xFFE1E1E1)),
-                        borderRadius: BorderRadius.circular(8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 15,
+                        vertical: 11,
                       ),
-                      child: const Column(
+                      decoration: BoxDecoration(
+                        color: HomePage.lightGreen,
+                        borderRadius: BorderRadius.circular(9),
+                      ),
+                      child: Row(
                         children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  '+ 12 Poin',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Saldo Poin',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: green,
+                                    color: HomePage.green,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
-                              ),
-
-                              SizedBox(width: 8),
-
-                              Text(
-                                'Mesin SOTO #21',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                  color: textDark,
+                                const SizedBox(height: 4),
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      '$_saldoPoin',
+                                      style: const TextStyle(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.w700,
+                                        color: HomePage.textDark,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 5),
+                                    const Padding(
+                                      padding: EdgeInsets.only(bottom: 3),
+                                      child: Text(
+                                        'Poin',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: HomePage.textDark,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 1),
+                                const Text(
+                                  'Tarik ke bawah untuk refresh',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: HomePage.green,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
 
-                          SizedBox(height: 11),
+                          const SizedBox(width: 8),
 
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  'Mesin SOTO #21',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: textGrey,
-                                  ),
+                          Image.asset(
+                            'assets/images/botol1.png',
+                            width: 72,
+                            height: 72,
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) {
+                              return const SizedBox(
+                                width: 72,
+                                height: 72,
+                                child: Icon(
+                                  Icons.recycling,
+                                  size: 48,
+                                  color: HomePage.green,
                                 ),
-                              ),
-
-                              SizedBox(width: 8),
-
-                              Text(
-                                'Hari ini 10.30',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(fontSize: 11, color: textGrey),
-                              ),
-                            ],
+                              );
+                            },
                           ),
                         ],
                       ),
                     ),
-                  ),
 
-                  const SizedBox(height: 8),
-                ],
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _InfoCard(
+                            title: 'Botol Ditabung',
+                            value: '$_totalBotol',
+                            suffix: 'Botol',
+                          ),
+                        ),
+
+                        const SizedBox(width: 12),
+
+                        Expanded(
+                          child: Container(
+                            height: 64,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 13,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: const Color(0xFFE1E1E1)),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Progres level',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: HomePage.textDark,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+
+                                SizedBox(height: 10),
+
+                                ClipRRect(
+                                  borderRadius: BorderRadius.all(
+                                    Radius.circular(10),
+                                  ),
+                                  child: LinearProgressIndicator(
+                                    value: 0.25,
+                                    minHeight: 5,
+                                    backgroundColor: Color(0xFFE4E4E4),
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      HomePage.green,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 17),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          child: _QuickMenu(
+                            icon: Icons.history,
+                            label: 'Riwayat',
+                            onTap: () {
+                              context.go(AppRouter.history);
+                            },
+                          ),
+                        ),
+                        Flexible(
+                          child: _QuickMenu(
+                            icon: Icons.card_giftcard,
+                            label: 'Reward',
+                            onTap: () {
+                              context.go(AppRouter.reward);
+                            },
+                          ),
+                        ),
+                        Flexible(
+                          child: _QuickMenu(
+                            icon: Icons.location_on_outlined,
+                            label: 'Lokasi Mesin',
+                            onTap: () {
+                              context.push(AppRouter.machine);
+                            },
+                          ),
+                        ),
+                        Flexible(
+                          child: _QuickMenu(
+                            icon: Icons.notifications_none,
+                            label: 'Notifikasi',
+                            onTap: () {
+                              context.push(AppRouter.notification);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 17),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.fromLTRB(13, 12, 13, 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8F8F8),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Expanded(
+                                child: Text(
+                                  'Mesin Terdekat',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: HomePage.textDark,
+                                  ),
+                                ),
+                              ),
+
+                              const SizedBox(width: 8),
+
+                              GestureDetector(
+                                onTap: () {
+                                  context.push(AppRouter.machine);
+                                },
+                                child: const Text(
+                                  'Lihat Semua',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: HomePage.green,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 9),
+
+                          const Text(
+                            '2 mesin di dekat kamu',
+                            style: TextStyle(fontSize: 12, color: HomePage.textGrey),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 17),
+                    const Text(
+                      'Riwayat Terakhir',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: HomePage.textDark,
+                      ),
+                    ),
+
+                    const SizedBox(height: 9),
+
+                    InkWell(
+                      onTap: () {
+                        context.go(AppRouter.history);
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(13),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: const Color(0xFFE1E1E1)),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Column(
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '+ 12 Poin',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: HomePage.green,
+                                    ),
+                                  ),
+                                ),
+
+                                SizedBox(width: 8),
+
+                                Text(
+                                  'Mesin SOTO #21',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: HomePage.textDark,
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            SizedBox(height: 11),
+
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    'Mesin SOTO #21',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: HomePage.textGrey,
+                                    ),
+                                  ),
+                                ),
+
+                                SizedBox(width: 8),
+
+                                Text(
+                                  'Hari ini 10.30',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(fontSize: 11, color: HomePage.textGrey),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 8),
+                  ],
+                ),
               ),
             );
           },

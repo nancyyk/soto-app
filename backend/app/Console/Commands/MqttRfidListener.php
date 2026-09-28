@@ -138,26 +138,101 @@ class MqttRfidListener extends Command
     }
 
     /**
-     * Subscribe ke topik UID dan mulai loop blocking.
-     *
-     * @throws MqttClientException jika loop error
-     */
     private function subscribeAndLoop(): void
     {
-        $this->info('[MQTT] Subscribe ke topik: ' . self::TOPIC_UID);
-        $this->info('[MQTT] Menunggu UID dari ESP32... (Ctrl+C untuk berhenti)');
+        $this->info('[MQTT] Subscribe ke topik UID, CHECK, dan TRANSACTION');
+        $this->info('[MQTT] Menunggu data dari ESP32... (Ctrl+C untuk berhenti)');
         $this->line('');
 
-        // Subscribe dengan QoS 1 agar pesan terjamin diterima
-        $this->mqtt->subscribe(self::TOPIC_UID, function (string $topic, string $payload) {
+        $this->mqtt->subscribe('soto/device/+/uid', function (string $topic, string $payload) {
             $this->handleUidMessage($topic, $payload);
         }, 1);
 
-        // Loop blocking — akan throw exception jika koneksi drop
-        $this->mqtt->loop(true);
+        $this->mqtt->subscribe('soto/device/+/check', function (string $topic, string $payload) {
+            $this->handleCheckMessage($topic, $payload);
+        }, 1);
 
-        // Jika loop berhenti normal (bukan exception)
+        $this->mqtt->subscribe('soto/device/+/transaction', function (string $topic, string $payload) {
+            $this->handleTransactionMessage($topic, $payload);
+        }, 1);
+
+        $this->mqtt->loop(true);
         $this->mqtt->disconnect();
+    }
+
+    // =========================================================================
+    // MESSAGE HANDLERS
+    // =========================================================================
+
+    private function handleCheckMessage(string $topic, string $payload): void
+    {
+        $this->line('');
+        $this->line("📡 [CHECK MASUK] Topik: {$topic}");
+        
+        $data = json_decode($payload, true);
+        if (json_last_error() !== JSON_ERROR_NONE) return;
+
+        $deviceId = trim($data['device_id'] ?? '');
+        $uid      = strtoupper(trim($data['uid'] ?? ''));
+
+        if (empty($deviceId) || empty($uid)) return;
+
+        $user = User::where('rfid_uid', $uid)->first();
+        $isValid = $user ? true : false;
+        
+        $response = [
+            'device_id' => $deviceId,
+            'uid'       => $uid,
+            'valid'     => $isValid,
+            'nama'      => $user ? $user->nama : null,
+        ];
+
+        $topicOut = "soto/device/{$deviceId}/check_result";
+        $this->mqtt->publish($topicOut, json_encode($response), 1);
+        
+        $this->info("✅ [CHECK HASIL] UID {$uid} -> " . ($isValid ? "VALID ({$user->nama})" : "TIDAK TERDAFTAR") . " | Dikirim ke {$topicOut}");
+    }
+
+    private function handleTransactionMessage(string $topic, string $payload): void
+    {
+        $this->line('');
+        $this->line("💰 [TRANSAKSI MASUK] Topik: {$topic}");
+        
+        $data = json_decode($payload, true);
+        if (json_last_error() !== JSON_ERROR_NONE) return;
+
+        $deviceId = trim($data['device_id'] ?? '');
+        $uid      = strtoupper(trim($data['uid'] ?? ''));
+        $botol    = (int)($data['jumlah_botol'] ?? 0);
+        $poin     = (int)($data['total_poin'] ?? 0);
+
+        if (empty($deviceId) || empty($uid)) return;
+
+        $user = User::where('rfid_uid', $uid)->first();
+        if ($user) {
+            // Update saldo user
+            $user->saldo_poin += $poin;
+            $user->save();
+
+            // Simpan ke riwayat transaksi (hardcode machine_id = 1 untuk prototipe)
+            \App\Models\Transaction::create([
+                'user_id'        => $user->id,
+                'machine_id'     => 1, 
+                'jumlah_botol'   => $botol,
+                'poin_diperoleh' => $poin,
+                'created_at'     => now(),
+            ]);
+
+            $this->info("✅ [TRANSAKSI SUKSES] User: {$user->nama} | Botol: {$botol} | Poin Diperoleh: {$poin} | Total Poin: {$user->saldo_poin}");
+            Log::info('[MqttRfidListener] Transaksi berhasil disimpan', [
+                'user_id' => $user->id, 
+                'uid' => $uid, 
+                'botol' => $botol, 
+                'poin' => $poin
+            ]);
+        } else {
+            $this->warn("⚠ [TRANSAKSI GAGAL] UID {$uid} tidak ditemukan di database!");
+        }
     }
 
     // =========================================================================
