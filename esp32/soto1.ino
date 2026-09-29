@@ -46,8 +46,8 @@
 // KONFIGURASI WIFI & MQTT — Sesuaikan dengan jaringan Anda
 // ============================================================
 
-const char* WIFI_SSID     = "NAMA_WIFI_ANDA";
-const char* WIFI_PASSWORD = "PASSWORD_WIFI_ANDA";
+const char* WIFI_SSID     = "Publik";
+const char* WIFI_PASSWORD = "";
 
 const char* MQTT_HOST   = "92dfec62ae7648038f50c5842ab6977b.s1.eu.hivemq.cloud";
 const int   MQTT_PORT   = 8883;
