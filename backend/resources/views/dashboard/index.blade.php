@@ -1,5 +1,5 @@
 @extends("layouts.app")
-@section("title", "Ringkasan Dashboard")
+@section("title", "Dashboard")
 @section("content")
 <div class="space-y-6">
 
@@ -18,7 +18,7 @@
                 @php $pct = $m->kapasitas_terkini; @endphp
                 <div>
                     <div class="flex justify-between text-xs mb-1">
-                        <span class="text-gray-600 truncate max-w-[160px]">{{ $m->nama_lokasi }}</span>
+                        <span class="text-gray-600 truncate max-w-40">{{ $m->nama_lokasi }}</span>
                         <span class="{{ $pct >= 80 ? 'text-red-600 font-medium' : 'text-gray-500' }}">{{ $pct }}%</span>
                     </div>
                     <div class="progress-bar">

@@ -43,6 +43,7 @@ class _SplashPageState extends State<SplashPage>
       
       if (isLoggedIn) {
         final user = await authService.getUser();
+        if (!mounted) return;
         if (user != null && user['rfid_uid'] != null && user['rfid_uid'].toString().isNotEmpty) {
           context.go('/home');
         } else {

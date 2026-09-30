@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/widgets/bottom_nav_bar.dart';
 import '../data/reward_data.dart';
+import '../data/reward_service.dart';
 
 class RewardPage extends StatefulWidget {
   const RewardPage({super.key});
@@ -11,50 +12,37 @@ class RewardPage extends StatefulWidget {
   static const Color green = Color(0xFF2D6A4F);
   static const Color textDark = Color(0xFF263238);
 
-  static const List<RewardData> allRewards = [
-    RewardData(
-      id: 'RWD-001',
-      title: 'Voucher Belanja Rp25.000',
-      description:
-          'Voucher belanja senilai Rp25.000 yang dapat digunakan untuk kebutuhan sehari-hari.',
-      points: 500,
-      category: 'Voucher',
-      imagePath: 'assets/images/voucher1.png',
-    ),
-    RewardData(
-      id: 'RWD-002',
-      title: 'OVO Cash Rp50.000',
-      description:
-          'Nikmati saldo OVO Cash senilai Rp50.000 dengan menukarkan poin yang kamu kumpulkan.',
-      points: 900,
-      category: 'E-Wallet',
-      imagePath: 'assets/images/ovo1.png',
-    ),
-    RewardData(
-      id: 'RWD-003',
-      title: 'Pulsa Rp20.000',
-      description:
-          'Tukarkan poin kamu dengan pulsa senilai Rp20.000 untuk nomor pilihanmu.',
-      points: 400,
-      category: 'Pulsa',
-      imagePath: 'assets/images/pulsa1.png',
-    ),
-    RewardData(
-      id: 'RWD-004',
-      title: 'Tumbler SOTO',
-      description:
-          'Tumbler reusable eksklusif untuk kamu yang terus peduli terhadap lingkungan.',
-      points: 1200,
-      category: 'Merchandise',
-      imagePath: 'assets/images/tumbler1.png',
-    ),
-  ];
-
   @override
   State<RewardPage> createState() => _RewardPageState();
 }
 
 class _RewardPageState extends State<RewardPage> {
+  final _rewardService = RewardService();
+  List<RewardData> _rewards = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRewards();
+  }
+
+  Future<void> _loadRewards() async {
+    try {
+      final data = await _rewardService.getRewards();
+      if (mounted) {
+        setState(() {
+          _rewards = data.map((e) => RewardData.fromJson(e)).toList();
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading rewards: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
   final TextEditingController _searchController = TextEditingController();
   String _selectedFilter = 'Semua';
 
@@ -68,7 +56,7 @@ class _RewardPageState extends State<RewardPage> {
   List<RewardData> get _filteredRewards {
     final query = _searchController.text.trim().toLowerCase();
 
-    return RewardPage.allRewards.where((reward) {
+    return _rewards.where((reward) {
       final matchesFilter =
           _selectedFilter == 'Semua' || reward.category == _selectedFilter;
 
@@ -214,8 +202,7 @@ class _RewardPageState extends State<RewardPage> {
               ),
             ),
             const SizedBox(height: 18),
-            Expanded(
-              child: _filteredRewards.isEmpty
+            if (_isLoading) const Expanded(child: Center(child: CircularProgressIndicator(color: RewardPage.green))) else Expanded( child: _filteredRewards.isEmpty
                   ? const Center(
                       child: Text(
                         'Reward tidak ditemukan',

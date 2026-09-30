@@ -7,17 +7,7 @@
         <div class="p-6 space-y-8">
 
             <div>
-                <h3 class="text-sm font-semibold text-gray-700  mb-4 pb-2 border-b border-gray-100 ">?? Konfigurasi Poin</h3>
-                <div>
-                    <label class="form-label">Poin per Botol <span class="text-red-500">*</span></label>
-                    <input wire:model="poinPerBotol" type="number" min="1" class="form-input" />
-                    <p class="text-xs text-gray-400  mt-1">Jumlah poin yang dikreditkan ke pengguna setiap 1 botol disetorkan.</p>
-                    @error("poinPerBotol") <p class="text-xs text-red-500  mt-1">{{ $message }}</p> @enderror
-                </div>
-            </div>
-
-            <div>
-                <h3 class="text-sm font-semibold text-gray-700  mb-4 pb-2 border-b border-gray-100 ">?? Lokasi Depot Pengangkutan</h3>
+                <h3 class="text-sm font-semibold text-gray-700  mb-4 pb-2 border-b border-gray-100 "> Lokasi Depot Pengangkutan</h3>
                 <div class="space-y-3">
                     <div>
                         <label class="form-label">Nama Depot</label>
@@ -40,7 +30,7 @@
             </div>
 
             <div>
-                <h3 class="text-sm font-semibold text-gray-700  mb-4 pb-2 border-b border-gray-100 ">??? Konfigurasi TSP</h3>
+                <h3 class="text-sm font-semibold text-gray-700  mb-4 pb-2 border-b border-gray-100 "> Konfigurasi TSP</h3>
                 <div>
                     <label class="form-label">Threshold Kapasitas (%)</label>
                     <input wire:model="tspThreshold" type="number" min="1" max="100" class="form-input" />

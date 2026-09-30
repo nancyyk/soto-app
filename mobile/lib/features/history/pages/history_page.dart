@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/router/app_router.dart';
 import '../../../core/widgets/bottom_nav_bar.dart';
+import '../../auth/data/auth_service.dart';
+import '../../home/data/home_service.dart';
 import 'transaction_detail_page.dart';
 
 class HistoryPage extends StatefulWidget {
@@ -14,47 +16,71 @@ class HistoryPage extends StatefulWidget {
 
 class _HistoryPageState extends State<HistoryPage> {
   final TextEditingController _searchController = TextEditingController();
+  final _authService = AuthService();
+  final _homeService = HomeService();
 
-  final List<TransactionData> _transactions = const [
-    TransactionData(
-      id: 'TXN-010985-001',
-      date: '23 Mei 2026',
-      time: '10.20 WIB',
-      machine: 'Mesin SOTO #21',
-      points: 24,
-      bottles: 12,
-      status: 'Berhasil',
-    ),
-    TransactionData(
-      id: 'TXN-010982-004',
-      date: '20 Mei 2026',
-      time: '14.35 WIB',
-      machine: 'Mesin SOTO #15',
-      points: 16,
-      bottles: 11,
-      status: 'Berhasil',
-    ),
-    TransactionData(
-      id: 'TXN-010974-002',
-      date: '10 Mei 2026',
-      time: '09.15 WIB',
-      machine: 'Mesin SOTO #08',
-      points: 30,
-      bottles: 15,
-      status: 'Berhasil',
-    ),
-    TransactionData(
-      id: 'TXN-010968-003',
-      date: '7 Mei 2026',
-      time: '16.40 WIB',
-      machine: 'Mesin SOTO #21',
-      points: 24,
-      bottles: 12,
-      status: 'Berhasil',
-    ),
-  ];
-
+  List<TransactionData> _transactions = [];
+  bool _isLoading = true;
   String _search = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    try {
+      final user = await _authService.getUser();
+      if (user != null && user['id'] != null) {
+        final data = await _homeService.getUserPoints(user['id']);
+        if (data['transactions'] != null && data['transactions']['data'] != null) {
+          final txs = data['transactions']['data'] as List;
+          final parsed = txs.map((e) {
+            final dateStr = e['created_at']?.toString() ?? '';
+            return TransactionData(
+              id: 'TXN-0109${e['id']}', // Example prefix
+              date: _formatDate(dateStr),
+              time: _formatTime(dateStr),
+              machine: (e['machine'] != null && e['machine']['nama_lokasi'] != null) 
+                  ? e['machine']['nama_lokasi'] 
+                  : 'Mesin SOTO #${e['machine_id'] ?? '-'}',
+              points: (e['poin_diperoleh'] ?? 0) as int,
+              bottles: (e['jumlah_botol'] ?? 0) as int,
+              status: 'Berhasil', // Static for now
+            );
+          }).toList();
+          
+          if (mounted) {
+            setState(() {
+              _transactions = parsed;
+              _isLoading = false;
+            });
+          }
+        }
+      } else {
+        if (mounted) setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      debugPrint('Error loading history: $e');
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  String _formatDate(String iso) {
+    try {
+      final dt = DateTime.parse(iso).toLocal();
+      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+      return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
+    } catch (_) { return iso; }
+  }
+
+  String _formatTime(String iso) {
+    try {
+      final dt = DateTime.parse(iso).toLocal();
+      return '${dt.hour.toString().padLeft(2, '0')}.${dt.minute.toString().padLeft(2, '0')} WIB';
+    } catch (_) { return ''; }
+  }
 
   @override
   void dispose() {
@@ -66,9 +92,7 @@ class _HistoryPageState extends State<HistoryPage> {
     if (_search.trim().isEmpty) {
       return _transactions;
     }
-
     final query = _search.toLowerCase();
-
     return _transactions.where((transaction) {
       return transaction.machine.toLowerCase().contains(query) ||
           transaction.date.toLowerCase().contains(query) ||
@@ -174,8 +198,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 ],
               ),
             ),
-            Expanded(
-              child: _filteredTransactions.isEmpty
+            if (_isLoading) const Expanded(child: Center(child: CircularProgressIndicator(color: Color(0xFF2D6A4F)))) else Expanded( child: _filteredTransactions.isEmpty
                   ? const Center(
                       child: Text(
                         'Transaksi tidak ditemukan',

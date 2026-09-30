@@ -1,12 +1,45 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import '../auth/data/auth_service.dart';
 import '../../core/widgets/bottom_nav_bar.dart';
 
-class MachineLocationPage extends StatelessWidget {
+class MachineLocationPage extends StatefulWidget {
   const MachineLocationPage({super.key});
 
+  @override
+  State<MachineLocationPage> createState() => _MachineLocationPageState();
+}
+
+class _MachineLocationPageState extends State<MachineLocationPage> {
   static const Color green = Color(0xFF2D6A4F);
+  List<dynamic> _machines = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchMachines();
+  }
+
+  Future<void> _fetchMachines() async {
+    try {
+      final dio = AuthService().dio;
+      final response = await dio.get('/machines');
+      if (mounted) {
+        setState(() {
+          _machines = response.data as List;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching machines: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -18,25 +51,17 @@ class MachineLocationPage extends StatelessWidget {
         centerTitle: true,
         leading: IconButton(
           onPressed: () => context.pop(),
-          icon: const Icon(
-            Icons.arrow_back_ios_new,
-            color: Colors.black,
-            size: 20,
-          ),
+          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black, size: 20),
         ),
         title: const Text(
           'Lokasi Mesin',
-          style: TextStyle(
-            color: Colors.black,
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-          ),
+          style: TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.w700),
         ),
       ),
       body: SafeArea(
         child: Column(
           children: [
-            // PETA
+            // PETA (Interactive flutter_map)
             Padding(
               padding: const EdgeInsets.fromLTRB(18, 22, 18, 0),
               child: ClipRRect(
@@ -44,166 +69,104 @@ class MachineLocationPage extends StatelessWidget {
                 child: SizedBox(
                   width: double.infinity,
                   height: 295,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Image.asset('assets/images/peta1.png', fit: BoxFit.cover),
-
-                      // Marker 1
-                      const Positioned(left: 68, top: 48, child: _MapMarker()),
-
-                      // Marker 2
-                      const Positioned(
-                        right: 42,
-                        top: 100,
-                        child: _MapMarker(),
+                  child: _isLoading 
+                    ? const Center(child: CircularProgressIndicator(color: green))
+                    : FlutterMap(
+                        options: MapOptions(
+                          initialCenter: const LatLng(-6.200000, 106.816666), // Default Jakarta
+                          initialZoom: 12.0,
+                        ),
+                        children: [
+                          TileLayer(
+                            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                            userAgentPackageName: 'com.soto.app',
+                          ),
+                          MarkerLayer(
+                            markers: _machines.map((m) {
+                              final lat = double.tryParse(m['latitude']?.toString() ?? '0') ?? 0;
+                              final lng = double.tryParse(m['longitude']?.toString() ?? '0') ?? 0;
+                              return Marker(
+                                point: LatLng(lat, lng),
+                                width: 40,
+                                height: 40,
+                                child: const Icon(Icons.location_on, color: Colors.red, size: 40),
+                              );
+                            }).toList(),
+                          ),
+                        ],
                       ),
-
-                      // Marker aktif
-                      const Positioned(
-                        left: 115,
-                        top: 142,
-                        child: _MapMarker(active: true),
-                      ),
-
-                      // Marker 4
-                      const Positioned(
-                        left: 48,
-                        bottom: 70,
-                        child: _MapMarker(),
-                      ),
-
-                      // Marker 5
-                      const Positioned(
-                        right: 48,
-                        bottom: 50,
-                        child: _MapMarker(),
-                      ),
-                    ],
-                  ),
                 ),
               ),
             ),
-
-            // DETAIL MESIN
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Mesin SOTO #21',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.black,
-                      ),
-                    ),
-
-                    const SizedBox(height: 4),
-
-                    const Text(
-                      'Jalan Merdeka No. 10',
-                      style: TextStyle(fontSize: 13, color: Color(0xFF666666)),
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.location_on_outlined,
-                          size: 18,
-                          color: green,
-                        ),
-                        const SizedBox(width: 4),
-                        const Text(
-                          '500 m',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: green,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-
-                        const Spacer(),
-
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE7F8EF),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: const Text(
-                            'Online',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: green,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const Spacer(),
-
-                    // TOMBOL NAVIGASI
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Navigasi ke Mesin SOTO #21'),
-                            ),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: green,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Text(
-                          'Navigasi',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+            const SizedBox(height: 24),
+            // DAFTAR MESIN
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Daftar Mesin SOTO', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: Color(0xFF222222))),
+                  Text('${_machines.length} Mesin', style: const TextStyle(color: green, fontSize: 12, fontWeight: FontWeight.w600)),
+                ],
               ),
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: _isLoading
+                ? const Center(child: CircularProgressIndicator(color: green))
+                : _machines.isEmpty
+                  ? const Center(child: Text('Belum ada mesin terdaftar', style: TextStyle(color: Colors.grey)))
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                      itemCount: _machines.length,
+                      itemBuilder: (context, index) {
+                        final m = _machines[index];
+                        final isOnline = m['status_online'] == 1 || m['status_online'] == true;
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: const Color(0xFFEEEEEE)),
+                            borderRadius: BorderRadius.circular(16),
+                            color: Colors.white,
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(color: const Color(0xFFF6F8F6), borderRadius: BorderRadius.circular(12)),
+                                child: const Icon(Icons.storefront, color: green),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(m['nama_lokasi'] ?? 'Mesin SOTO', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Color(0xFF222222))),
+                                    const SizedBox(height: 4),
+                                    Text('Kapasitas: ${m['kapasitas_terkini'] ?? 0}/${m['kapasitas_maksimal'] ?? 0}', style: const TextStyle(color: Color(0xFF777777), fontSize: 12)),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: isOnline ? const Color(0xFFE7F8EF) : Colors.red.shade50,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(isOnline ? 'Online' : 'Offline', style: TextStyle(color: isOnline ? green : Colors.red, fontSize: 10, fontWeight: FontWeight.w600)),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
             ),
           ],
         ),
       ),
       bottomNavigationBar: const BottomNavBar(),
-    );
-  }
-}
-
-class _MapMarker extends StatelessWidget {
-  final bool active;
-
-  const _MapMarker({this.active = false});
-
-  @override
-  Widget build(BuildContext context) {
-    return Icon(
-      Icons.location_on,
-      size: active ? 32 : 26,
-      color: active ? const Color(0xFF2D8A57) : const Color(0xFF1769AA),
     );
   }
 }

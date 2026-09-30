@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/reward_data.dart';
+import '../data/reward_service.dart';
 
 class RewardDetailPage extends StatelessWidget {
   final RewardData reward;
@@ -252,46 +253,66 @@ class RewardDetailPage extends StatelessWidget {
   }
 
   void _showRedeemDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-          ),
-          title: const Text(
-            'Tukar Reward?',
-            style: TextStyle(fontWeight: FontWeight.w700),
-          ),
-          content: Text(
-            'Kamu akan menukarkan ${reward.points} poin untuk ${reward.title}.',
-            style: const TextStyle(fontSize: 14, height: 1.5),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text(
-                'Batal',
-                style: TextStyle(color: Color(0xFF777777)),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Reward berhasil ditukarkan!')),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: green,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Tukar'),
-            ),
-          ],
-        );
-      },
-    );
+                  showDialog(
+                context: context,
+                builder: (dialogContext) {
+                  final addressController = TextEditingController();
+                  bool isSubmitting = false;
+
+                  return StatefulBuilder(
+                    builder: (context, setState) {
+                      return AlertDialog(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                        title: const Text('Konfirmasi Pengiriman', style: TextStyle(fontWeight: FontWeight.w700)),
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('Tukar ${reward.points} Poin dengan ${reward.title}?'),
+                            const SizedBox(height: 16),
+                            TextField(
+                              controller: addressController,
+                              maxLines: 3,
+                              decoration: InputDecoration(
+                                hintText: 'Masukkan alamat pengiriman lengkap...',
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: isSubmitting ? null : () => Navigator.pop(dialogContext),
+                            child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+                          ),
+                          ElevatedButton(
+                            onPressed: isSubmitting ? null : () async {
+                              if (addressController.text.trim().isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Alamat harus diisi')));
+                                return;
+                              }
+                              setState(() => isSubmitting = true);
+                              try {
+                                await RewardService().redeemReward(reward.id, addressController.text);
+                                if (!context.mounted) return;
+                                  Navigator.pop(dialogContext);
+                                  context.pop();
+                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Reward berhasil ditukar! Cek riwayat Anda.')));
+                              } catch (e) {
+                                setState(() => isSubmitting = false);
+                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceAll('Exception: ', ''))));
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(backgroundColor: green, foregroundColor: Colors.white),
+                            child: isSubmitting 
+                                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                : const Text('Tukar'),
+                          ),
+                        ],
+                      );
+                    }
+                  );
+                },
+              );
   }
 }
 
