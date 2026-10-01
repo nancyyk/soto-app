@@ -24,14 +24,18 @@ class UserController extends Controller
             return response()->json(['error' => 'Forbidden'], 403);
         }
 
+        // Hitung total botol dari SEMUA transaksi (bukan per halaman)
+        $totalBotol = $user->transactions()->sum('jumlah_botol');
+
         $transactions = $user->transactions()
             ->with('machine:id,nama_lokasi')
             ->latest('created_at')
             ->paginate(20);
 
         return response()->json([
-            'user' => ['id' => $user->id, 'nama' => $user->nama, 'email' => $user->email],
-            'saldo_poin' => $user->saldo_poin,
+            'user'         => ['id' => $user->id, 'nama' => $user->nama, 'email' => $user->email],
+            'saldo_poin'   => $user->saldo_poin,
+            'total_botol'  => (int) $totalBotol,
             'transactions' => $transactions,
         ]);
     }

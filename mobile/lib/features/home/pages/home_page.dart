@@ -42,10 +42,8 @@ class _HomePageState extends State<HomePage> {
           setState(() {
             _user = user;
             _saldoPoin = data['saldo_poin'] ?? 0;
-            if (data['transactions'] != null && data['transactions']['data'] != null) {
-              final txs = data['transactions']['data'] as List;
-              _totalBotol = txs.fold(0, (sum, item) => sum + (item['jumlah_botol'] as int? ?? 0));
-            }
+            // Langsung pakai total_botol dari backend (SUM semua transaksi)
+            _totalBotol = data['total_botol'] ?? 0;
             _isLoading = false;
           });
         }
