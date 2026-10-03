@@ -2,6 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Device;
+use App\Models\Machine;
 use App\Models\RfidScanRequest;
 use App\Models\User;
 use Illuminate\Console\Command;
@@ -212,26 +214,58 @@ class MqttRfidListener extends Command
 
         $user = User::where('rfid_uid', $uid)->first();
         if ($user) {
-            // Update saldo user
-            $user->saldo_poin += $poin;
-            $user->save();
+            try {
+                // Update saldo poin user
+                $user->saldo_poin += $poin;
+                $user->save();
 
-            // Simpan ke riwayat transaksi (hardcode machine_id = 1 untuk prototipe)
-            \App\Models\Transaction::create([
-                'user_id'        => $user->id,
-                'machine_id'     => 1, 
-                'jumlah_botol'   => $botol,
-                'poin_diperoleh' => $poin,
-                'created_at'     => now(),
-            ]);
+                // Cari machine_id dari device_id, atau pakai machine pertama yang ada
+                $device  = Device::where('device_id', $deviceId)->first();
+                $machine = null;
+                if ($device) {
+                    $machine = Machine::first();
+                }
+                if (! $machine) {
+                    $machine = Machine::firstOrCreate(
+                        ['nama_lokasi' => 'SOTO Prototipe'],
+                        [
+                            'latitude'           => 0,
+                            'longitude'          => 0,
+                            'is_simulation'      => false,
+                            'status_online'      => true,
+                            'kapasitas_terkini'  => 0,
+                            'threshold_capacity' => 80,
+                        ]
+                    );
+                }
 
-            $this->info("✅ [TRANSAKSI SUKSES] User: {$user->nama} | Botol: {$botol} | Poin Diperoleh: {$poin} | Total Poin: {$user->saldo_poin}");
-            Log::info('[MqttRfidListener] Transaksi berhasil disimpan', [
-                'user_id' => $user->id, 
-                'uid' => $uid, 
-                'botol' => $botol, 
-                'poin' => $poin
-            ]);
+                // Simpan ke riwayat transaksi
+                \App\Models\Transaction::create([
+                    'user_id'        => $user->id,
+                    'machine_id'     => $machine->id,
+                    'jumlah_botol'   => $botol,
+                    'poin_diperoleh' => $poin,
+                    'created_at'     => now(),
+                ]);
+
+                $this->info("✅ [TRANSAKSI SUKSES] User: {$user->nama} | Botol: {$botol} | Poin: {$poin} | Total Poin: {$user->saldo_poin}");
+                Log::info('[MqttRfidListener] Transaksi berhasil disimpan', [
+                    'user_id'    => $user->id,
+                    'uid'        => $uid,
+                    'botol'      => $botol,
+                    'poin'       => $poin,
+                    'machine_id' => $machine->id,
+                ]);
+            } catch (\Throwable $e) {
+                $this->error("❌ [TRANSAKSI ERROR] " . $e->getMessage());
+                Log::error('[MqttRfidListener] Gagal menyimpan transaksi', [
+                    'uid'   => $uid,
+                    'botol' => $botol,
+                    'poin'  => $poin,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+            }
         } else {
             $this->warn("⚠ [TRANSAKSI GAGAL] UID {$uid} tidak ditemukan di database!");
         }
