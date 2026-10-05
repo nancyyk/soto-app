@@ -33,7 +33,8 @@ Route::middleware(['auth'])->group(function () {
 
     // Admin-only routes
     Route::middleware('role:admin')->group(function () {
-        Route::get('/pengguna', fn () => view('pengguna.index'))->name('pengguna.index');
-        Route::get('/pengaturan', fn () => view('pengaturan.index'))->name('pengaturan.index');
+    Route::get('/reward', fn () => view('reward.index'))->name('reward.index');
+    Route::get('/pengguna', fn () => view('pengguna.index'))->name('pengguna.index');
+    Route::get('/pengaturan', fn () => view('pengaturan.index'))->name('pengaturan.index');
     });
 });

@@ -1,15 +1,32 @@
 <?php
+
 namespace App\Models;
+
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class RewardRedemption extends Model
 {
-    protected $fillable = ['user_id', 'reward_id', 'points_used', 'status', 'shipping_address', 'tracking_number'];
-    
-    public function user() {
+    protected $fillable = [
+        'user_id',
+        'reward_id',
+        'poin',
+        'status',
+        'ekspedisi',
+        'nomor_resi',
+    ];
+
+    protected $casts = [
+        'poin' => 'integer',
+    ];
+
+    public function user(): BelongsTo
+    {
         return $this->belongsTo(User::class);
     }
-    public function reward() {
+
+    public function reward(): BelongsTo
+    {
         return $this->belongsTo(Reward::class);
     }
 }
