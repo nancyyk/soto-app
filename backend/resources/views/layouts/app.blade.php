@@ -40,6 +40,9 @@
 
                 <!-- Top Right Actions -->
                 <div class="flex items-center gap-3 ml-4 flex-shrink-0">
+                    <!-- Notification Bell Dropdown -->
+                    @livewire('admin-notification-dropdown')
+
                     <!-- User Avatar -->
                     <div class="w-9 h-9 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-sm shadow-sm cursor-help hover:bg-emerald-100 transition-colors" 
                          title="{{ Auth::user()->nama ?? 'Administrator' }} ({{ Auth::user()->email ?? '' }})">

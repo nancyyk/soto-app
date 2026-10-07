@@ -93,67 +93,102 @@
     {{-- Modal Update Status & Pengiriman --}}
     @if($showModal)
     <div wire:key="redemption-modal-{{ $editingId }}" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl shadow-2xl ring-1 ring-gray-200 w-full max-w-md">
-            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-                <h3 class="font-semibold text-gray-800">Update Penukaran #{{ $editingId }}</h3>
-                <button type="button" wire:click="closeModal" class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+        <div class="bg-white rounded-2xl shadow-2xl ring-1 ring-gray-200 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div class="flex items-start justify-between gap-4 px-6 py-5 border-b border-gray-200">
+                <div class="min-w-0">
+                    <h3 class="font-semibold text-lg text-gray-800">Detail Penukaran #{{ $editingId }}</h3>
+                    <p class="text-sm text-gray-500 mt-1">Periksa informasi penukaran dan perbarui status.</p>
+                </div>
+                @if($status === 'Selesai')
+                    <span class="badge-green shrink-0">Selesai</span>
+                @elseif($status === 'Pengiriman')
+                    <span class="badge-blue shrink-0">Pengiriman</span>
+                @else
+                    <span class="badge-yellow shrink-0">{{ $status ?: 'Proses' }}</span>
+                @endif
+                <button type="button" wire:click="closeModal" aria-label="Tutup modal" class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
             </div>
             <form wire:submit.prevent="updateStatus">
-                <div class="p-6 space-y-4">
-                    <div class="p-3 bg-gray-50 rounded-lg space-y-1.5 text-xs text-gray-600 border border-gray-200">
-                        <div class="flex justify-between">
-                            <span class="text-gray-500">Tanggal:</span>
-                            <span class="font-medium text-gray-900">{{ $selectedDate }}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-500">Pengguna:</span>
-                            <span class="font-medium text-gray-900">{{ $selectedUserName }}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-500">Reward:</span>
-                            <span class="font-medium text-gray-900">{{ $selectedRewardName }}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-500">Kategori:</span>
-                            <span class="font-medium text-gray-900">{{ $selectedRewardCategory ?: '-' }}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-500">Poin Ditukar:</span>
-                            <span class="font-semibold text-emerald-600">-{{ number_format($selectedPointsUsed) }} pts</span>
-                        </div>
-                    </div>
+                <div class="p-5 sm:p-6 space-y-4 overflow-y-auto max-h-[68vh]">
+                    <section class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                        <h4 class="text-sm font-semibold text-gray-800 mb-3">Informasi Penukaran</h4>
+                        <dl class="grid grid-cols-2 lg:grid-cols-4 gap-x-5 gap-y-3 text-sm">
+                            <div class="min-w-0">
+                                <dt class="text-xs text-gray-500 mb-1">Pengguna</dt>
+                                <dd class="font-medium text-gray-900 break-words">{{ $selectedUserName }}</dd>
+                            </div>
+                            <div class="min-w-0">
+                                <dt class="text-xs text-gray-500 mb-1">Tanggal</dt>
+                                <dd class="font-medium text-gray-900">{{ $selectedDate }}</dd>
+                            </div>
+                            <div class="min-w-0">
+                                <dt class="text-xs text-gray-500 mb-1">Reward</dt>
+                                <dd class="font-medium text-gray-900 break-words">{{ $selectedRewardName }}</dd>
+                                <dd class="text-xs text-gray-500 mt-0.5">{{ $selectedRewardCategory ?: 'Kategori tidak tersedia' }}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs text-gray-500 mb-1">Poin Ditukar</dt>
+                                <dd class="font-semibold text-emerald-700">-{{ number_format($selectedPointsUsed) }} pts</dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs text-gray-500 mb-1">Status</dt>
+                                <dd class="font-medium text-gray-900">{{ $status ?: 'Proses' }}</dd>
+                            </div>
+                        </dl>
+                    </section>
 
-                    <div>
-                        <label class="form-label">Status <span class="text-red-500">*</span></label>
-                        <select id="redemption-status" wire:model.live="status" class="form-input">
-                            <option value="Proses">Proses</option>
+                    <section class="rounded-xl border border-gray-200 bg-white p-4">
+                        @if($selectedRewardCategory === 'Merchandise')
+                            <h4 class="text-sm font-semibold text-gray-800 mb-2">Alamat Pengiriman</h4>
+                            <p class="max-h-24 overflow-y-auto text-sm text-gray-700 leading-relaxed whitespace-pre-line break-words pr-2">{{ $selectedShippingAddress ?: 'Alamat belum tersedia' }}</p>
+                        @elseif($selectedRewardCategory === 'E-Wallet')
+                            <h4 class="text-sm font-semibold text-gray-800 mb-2">Nomor E-Wallet</h4>
+                            <p class="text-sm font-mono font-medium text-gray-900 leading-relaxed break-words">{{ $selectedRecipientNumber ?: 'Nomor E-Wallet belum tersedia' }}</p>
+                        @elseif($selectedRewardCategory === 'Pulsa')
+                            <h4 class="text-sm font-semibold text-gray-800 mb-2">Nomor HP Tujuan</h4>
+                            <p class="text-sm font-mono font-medium text-gray-900 leading-relaxed break-words">{{ $selectedRecipientNumber ?: 'Nomor HP belum tersedia' }}</p>
+                        @elseif($selectedRewardCategory === 'Voucher')
+                            <h4 class="text-sm font-semibold text-gray-800 mb-2">Data Penerima</h4>
+                            <p class="text-sm text-gray-500 leading-relaxed">Tidak diperlukan — kode voucher diberikan setelah penukaran.</p>
+                        @else
+                            <h4 class="text-sm font-semibold text-gray-800 mb-2">Data Penerima</h4>
+                            <p class="text-sm text-gray-700 leading-relaxed">{{ $selectedShippingAddress ?: ($selectedRecipientNumber ?: 'Data penerima belum tersedia') }}</p>
+                        @endif
+                    </section>
+
+                    <section @if($selectedRewardCategory === 'Merchandise') id="shipment-fields" @endif class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+                            <div class="min-w-0">
+                                <label class="form-label">Status <span class="text-red-500">*</span></label>
+                                <select id="redemption-status" wire:model.live="status" class="form-input">
+                                    <option value="Proses">Proses</option>
+                                    @if($selectedRewardCategory === 'Merchandise')
+                                        <option id="shipping-status-option" value="Pengiriman">Pengiriman</option>
+                                    @endif
+                                    <option value="Selesai">Selesai</option>
+                                </select>
+                                @error('status') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                            </div>
+
                             @if($selectedRewardCategory === 'Merchandise')
-                                <option id="shipping-status-option" value="Pengiriman">Pengiriman</option>
+                            <div class="min-w-0">
+                                <label class="form-label">Ekspedisi @if($status === 'Pengiriman') <span class="text-red-500">*</span> @endif</label>
+                                <select wire:model="ekspedisi" class="form-input">
+                                    <option value="">Pilih Ekspedisi</option>
+                                    <option value="POS">POS</option>
+                                    <option value="J&T">J&amp;T</option>
+                                </select>
+                                @error('ekspedisi') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                            </div>
+
+                            <div class="min-w-0">
+                                <label class="form-label">Nomor Resi @if($status === 'Pengiriman') <span class="text-red-500">*</span> @endif</label>
+                                <input wire:model="nomor_resi" type="text" placeholder="Masukkan nomor resi" class="form-input font-mono" />
+                                @error('nomor_resi') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                            </div>
                             @endif
-                            <option value="Selesai">Selesai</option>
-                        </select>
-                        @error('status') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
-                    </div>
-
-                    @if($selectedRewardCategory === 'Merchandise' && ($status === 'Pengiriman' || $status === 'Selesai'))
-                    <div id="shipment-fields" class="space-y-4">
-                    <div>
-                        <label class="form-label">Ekspedisi @if($status === 'Pengiriman') <span class="text-red-500">*</span> @endif</label>
-                        <select wire:model="ekspedisi" class="form-input">
-                            <option value="">Pilih Ekspedisi</option>
-                            <option value="POS">POS</option>
-                            <option value="J&T">J&T</option>
-                        </select>
-                        @error('ekspedisi') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
-                    </div>
-
-                    <div>
-                        <label class="form-label">Nomor Resi @if($status === 'Pengiriman') <span class="text-red-500">*</span> @endif</label>
-                        <input wire:model="nomor_resi" type="text" placeholder="Masukkan nomor resi" class="form-input font-mono" />
-                        @error('nomor_resi') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
-                    </div>
-                    </div>
-                    @endif
+                        </div>
+                    </section>
                 </div>
                 <div class="flex gap-3 justify-end px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-xl">
                     <button type="button" wire:click="closeModal" class="btn-secondary text-sm">Batal</button>

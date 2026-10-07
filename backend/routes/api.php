@@ -42,9 +42,11 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::post('/rewards/redeem', [App\Http\Controllers\Api\V1\RewardController::class, 'redeem']);
         Route::get('/rewards/my-redemptions', [App\Http\Controllers\Api\V1\RewardController::class, 'myRedemptions']);
         
-        // Notifications (User)
+        // Notifications (User & Admin)
         Route::get('/notifications', [App\Http\Controllers\Api\V1\NotificationController::class, 'index']);
-        Route::post('/notifications/{id}/read', [App\Http\Controllers\Api\V1\NotificationController::class, 'markAsRead']);
+        Route::get('/notifications/unread-count', [App\Http\Controllers\Api\V1\NotificationController::class, 'unreadCount']);
+        Route::patch('/notifications/read-all', [App\Http\Controllers\Api\V1\NotificationController::class, 'markAllAsRead']);
+        Route::patch('/notifications/{id}/read', [App\Http\Controllers\Api\V1\NotificationController::class, 'markAsRead']);
 
         // Reports (admin only)
         Route::middleware('role:admin')->group(function () {

@@ -239,13 +239,28 @@ class MqttRfidListener extends Command
                 }
 
                 // Simpan ke riwayat transaksi
-                \App\Models\Transaction::create([
+                $transaction = \App\Models\Transaction::create([
                     'user_id'        => $user->id,
                     'machine_id'     => $machine->id,
                     'jumlah_botol'   => $botol,
                     'poin_diperoleh' => $poin,
                     'created_at'     => now(),
                 ]);
+
+                // Send points added notification (with deduplication check)
+                $alreadyNotified = $user->notifications()
+                    ->where('type', \App\Notifications\PointsAddedNotification::class)
+                    ->whereJsonContains('data->transaction_id', $transaction->id)
+                    ->exists();
+
+                if (! $alreadyNotified) {
+                    $user->notify(new \App\Notifications\PointsAddedNotification(
+                        jumlahBotol: $botol,
+                        poinDiperoleh: $poin,
+                        namaLokasi: $machine->nama_lokasi,
+                        transactionId: $transaction->id,
+                    ));
+                }
 
                 $this->info("✅ [TRANSAKSI SUKSES] User: {$user->nama} | Botol: {$botol} | Poin: {$poin} | Total Poin: {$user->saldo_poin}");
                 Log::info('[MqttRfidListener] Transaksi berhasil disimpan', [
@@ -284,12 +299,16 @@ class MqttRfidListener extends Command
         $machine = Machine::first();
         if (!$machine) return;
 
+        $oldCapacity = (int) $machine->kapasitas_terkini;
+
         // Update kapasitas terkini
         $machine->update([
             'kapasitas_terkini' => $kapasitas,
             'status_online'     => true,
             'tegangan_baterai'  => $tegangan,
         ]);
+
+        \App\Services\NotificationService::checkAndNotifyMachineCapacityTransition($machine, $oldCapacity);
 
         // Broadcast event ke admin dashboard (Reverb)
         broadcast(new NodeTelemetryUpdated(

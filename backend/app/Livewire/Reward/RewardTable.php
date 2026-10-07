@@ -128,9 +128,20 @@ class RewardTable extends Component
         try {
             if ($this->editingId) {
                 $reward = Reward::findOrFail($this->editingId);
+                $oldStock = (int) $reward->stok;
                 $reward->update($data);
+
+                \App\Services\NotificationService::checkAndNotifyRewardStockTransition($reward->fresh(), $oldStock);
             } else {
-                Reward::create($data);
+                $reward = Reward::create($data);
+
+                // Notify active normal users about new reward (Constraint 10)
+                \App\Services\NotificationService::notifyNewRewardAvailable($reward);
+
+                // Check initial low stock if created with low stock (Constraint 6)
+                if ($reward->stok <= 2) {
+                    \App\Services\NotificationService::checkAndNotifyRewardStockTransition($reward, 10);
+                }
             }
         } catch (\Throwable $exception) {
             if ($newImagePath) {

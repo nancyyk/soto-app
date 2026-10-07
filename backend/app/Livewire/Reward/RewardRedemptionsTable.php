@@ -26,6 +26,8 @@ class RewardRedemptionsTable extends Component
     public ?string $selectedRewardCategory = '';
     public int $selectedPointsUsed = 0;
     public ?string $selectedDate = '';
+    public ?string $selectedShippingAddress = '';
+    public ?string $selectedRecipientNumber = '';
 
     protected $queryString = ['search', 'filterStatus'];
 
@@ -50,6 +52,8 @@ class RewardRedemptionsTable extends Component
         $this->selectedRewardName = ($redemption->reward?->kode ? $redemption->reward->kode . ' • ' : '') . ($redemption->reward?->nama ?? 'Reward #' . $redemption->reward_id);
         $this->selectedPointsUsed = (int) $redemption->poin;
         $this->selectedRewardCategory = $redemption->reward?->kategori;
+        $this->selectedShippingAddress = $redemption->shipping_address ?: null;
+        $this->selectedRecipientNumber = $redemption->recipient_number ?: null;
         if ($this->selectedRewardCategory !== 'Merchandise' && $this->status === 'Pengiriman') {
             $this->status = 'Proses';
         }
@@ -112,6 +116,10 @@ class RewardRedemptionsTable extends Component
         // When completed, only update status so saved shipment details remain intact.
         $redemption->update($data);
 
+        if ($redemption->user) {
+            $redemption->user->notify(new \App\Notifications\RedemptionStatusUpdatedNotification($redemption->fresh()));
+        }
+
         session()->flash('success', 'Status penukaran #' . $redemption->id . ' berhasil diperbarui.');
 
         $this->closeModal();
@@ -125,7 +133,7 @@ class RewardRedemptionsTable extends Component
     public function closeModal(): void
     {
         $this->showModal = false;
-        $this->reset(['editingId', 'status', 'ekspedisi', 'nomor_resi', 'selectedUserName', 'selectedRewardName', 'selectedRewardCategory', 'selectedPointsUsed', 'selectedDate']);
+        $this->reset(['editingId', 'status', 'ekspedisi', 'nomor_resi', 'selectedUserName', 'selectedRewardName', 'selectedRewardCategory', 'selectedPointsUsed', 'selectedDate', 'selectedShippingAddress', 'selectedRecipientNumber']);
         $this->status = 'Proses';
         $this->resetValidation();
     }

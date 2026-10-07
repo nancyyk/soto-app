@@ -15,12 +15,22 @@ class RewardService {
     }
   }
 
-  Future<void> redeemReward(int rewardId, String address) async {
+  Future<void> redeemReward({
+    required int rewardId,
+    String? shippingAddress,
+    String? recipientNumber,
+  }) async {
     try {
-      await _dio.post('/rewards/redeem', data: {
+      final Map<String, dynamic> body = {
         'reward_id': rewardId,
-        'shipping_address': address,
-      });
+      };
+      if (shippingAddress != null && shippingAddress.isNotEmpty) {
+        body['shipping_address'] = shippingAddress;
+      }
+      if (recipientNumber != null && recipientNumber.isNotEmpty) {
+        body['recipient_number'] = recipientNumber;
+      }
+      await _dio.post('/rewards/redeem', data: body);
     } catch (e) {
       if (e is DioException && e.response != null) {
         throw Exception(e.response?.data['message'] ?? 'Gagal menukar reward');

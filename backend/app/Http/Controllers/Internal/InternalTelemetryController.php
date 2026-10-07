@@ -39,12 +39,16 @@ class InternalTelemetryController extends Controller
             return response()->json(['error' => 'Machine not found'], 404);
         }
 
+        $oldCapacity = (int) $machine->kapasitas_terkini;
+
         // Update machine current state
         $machine->update([
             'kapasitas_terkini' => $validated['kapasitas'],
             'tegangan_baterai' => $validated['tegangan_baterai'],
             'status_online' => $validated['status_online'],
         ]);
+
+        \App\Services\NotificationService::checkAndNotifyMachineCapacityTransition($machine, $oldCapacity);
 
         // Log time-series
         LogCapacity::create([

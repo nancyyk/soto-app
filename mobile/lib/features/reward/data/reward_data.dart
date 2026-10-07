@@ -20,12 +20,12 @@ class RewardData {
   factory RewardData.fromJson(Map<String, dynamic> json) {
     return RewardData(
       id: json['id'] as int,
-      title: json['name'] ?? 'Reward',
-      description: json['description'] ?? '',
-      points: json['points_required'] ?? 0,
-      category: 'Tersedia', // Or add category to backend later
-      stock: json['stock'] ?? 0,
-      imagePath: json['image_url'] ?? 'assets/images/voucher1.png',
+      title: json['nama'] ?? 'Reward',
+      description: json['deskripsi'] ?? '',
+      points: json['poin'] ?? 0,
+      category: json['kategori'] ?? '',
+      stock: json['stok'] ?? 0,
+      imagePath: json['gambar'] ?? '',
     );
   }
 }

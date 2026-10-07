@@ -49,8 +49,8 @@ class ProcessTransactionJob implements ShouldQueue
         $pointsPerBottle = (int) Setting::get('poin_per_botol', config('soto.points_per_bottle', 10));
         $poinDiperoleh = $this->jumlahBotol * $pointsPerBottle;
 
-        DB::transaction(function () use ($card, $poinDiperoleh) {
-            Transaction::create([
+        $transaction = DB::transaction(function () use ($card, $poinDiperoleh) {
+            $trx = Transaction::create([
                 'user_id' => $card->user_id,
                 'machine_id' => $this->machineId,
                 'jumlah_botol' => $this->jumlahBotol,
@@ -60,7 +60,24 @@ class ProcessTransactionJob implements ShouldQueue
 
             // Update denormalized saldo_poin
             $card->user->increment('saldo_poin', $poinDiperoleh);
+
+            return $trx;
         });
+
+        // Deduplication check for PointsAddedNotification
+        $alreadyNotified = $card->user->notifications()
+            ->where('type', \App\Notifications\PointsAddedNotification::class)
+            ->whereJsonContains('data->transaction_id', $transaction->id)
+            ->exists();
+
+        if (! $alreadyNotified) {
+            $card->user->notify(new \App\Notifications\PointsAddedNotification(
+                jumlahBotol: $this->jumlahBotol,
+                poinDiperoleh: $poinDiperoleh,
+                namaLokasi: $machine->nama_lokasi,
+                transactionId: $transaction->id,
+            ));
+        }
 
         event(new TransactionCreated(
             userId: $card->user_id,

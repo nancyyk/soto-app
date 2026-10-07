@@ -7,6 +7,8 @@ use App\Models\Machine;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
+use App\Services\NotificationService;
+
 /**
  * @group Mesin RVM
  */
@@ -51,7 +53,10 @@ class MachineController extends Controller
             'kapasitas' => ['required', 'integer', 'min:0', 'max:100'],
         ]);
 
+        $oldCapacity = (int) $machine->kapasitas_terkini;
         $machine->update(['kapasitas_terkini' => $validated['kapasitas']]);
+
+        NotificationService::checkAndNotifyMachineCapacityTransition($machine, $oldCapacity);
 
         return response()->json($machine->fresh());
     }
