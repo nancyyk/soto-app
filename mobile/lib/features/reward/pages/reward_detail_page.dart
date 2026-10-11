@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/router/app_router.dart';
 import '../data/reward_data.dart';
 import '../data/reward_service.dart';
 import '../widgets/reward_image.dart';
@@ -366,7 +367,19 @@ class _RedeemDialogState extends State<_RedeemDialog> {
       final pageCtx = widget.pageContext;
       if (pageCtx.mounted) {
         ScaffoldMessenger.of(pageCtx).showSnackBar(
-          const SnackBar(content: Text('Reward berhasil ditukar! Cek riwayat Anda.')),
+          SnackBar(
+            content: const Text('Reward berhasil ditukar! Cek status penukaran.'),
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(
+              label: 'Lihat Status',
+              textColor: Colors.white,
+              onPressed: () {
+                if (pageCtx.mounted) {
+                  GoRouter.of(pageCtx).push(AppRouter.rewardHistory);
+                }
+              },
+            ),
+          ),
         );
         GoRouter.of(pageCtx).pop();
       }

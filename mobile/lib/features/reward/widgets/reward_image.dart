@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../data/reward_data.dart';
 
 class RewardImage extends StatelessWidget {
   final String imagePath;
@@ -18,7 +19,7 @@ class RewardImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final trimmed = imagePath.trim();
+    final trimmed = RewardData.resolveImagePath(imagePath);
 
     if (trimmed.isEmpty) {
       return fallback ?? _defaultFallback();
@@ -32,6 +33,7 @@ class RewardImage extends StatelessWidget {
         fit: fit,
         filterQuality: FilterQuality.high,
         errorBuilder: (context, error, stackTrace) {
+          debugPrint('⚠️ [RewardImage] Gagal memuat gambar: $trimmed | Error: $error');
           return fallback ?? _defaultFallback();
         },
         loadingBuilder: (context, child, loadingProgress) {

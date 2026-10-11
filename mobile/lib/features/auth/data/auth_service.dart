@@ -9,7 +9,12 @@ class AuthService {
   // HP Fisik (LAN)   : http://192.168.x.x:8000/api/v1
   static String get baseUrl {
     if (kIsWeb) return 'http://localhost:8000/api/v1';
-    return 'http://192.168.50.29:8000/api/v1'; // sesuaikan IP Anda
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+      return 'http://localhost:8000/api/v1';
+    }
+    // IP LAN / Wi-Fi host saat ini: 192.168.100.16
+    // Jika menggunakan Android Emulator: ganti ke 10.0.2.2
+    return 'http://192.168.100.16:8000/api/v1';
   }
 
   /// Base URL server tanpa prefix /api/v1 (untuk asset storage seperti gambar)

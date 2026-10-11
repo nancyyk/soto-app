@@ -131,12 +131,41 @@ class _HistoryPageState extends State<HistoryPage> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Text(
-                    'Riwayat Transaksi',
-                    style: TextStyle(
-                      fontSize: 21,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF263238),
+                  const Expanded(
+                    child: Text(
+                      'Riwayat Transaksi',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF263238),
+                      ),
+                    ),
+                  ),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: () => context.push(AppRouter.rewardHistory),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEAF5EF),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFFB7E4C7)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(Icons.card_giftcard, size: 14, color: Color(0xFF2D6A4F)),
+                          SizedBox(width: 5),
+                          Text(
+                            'Reward',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF2D6A4F),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],

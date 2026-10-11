@@ -208,4 +208,25 @@ class RewardController extends Controller
             'data' => $redemption
         ]);
     }
+
+    public function serveStorageImage(string $path)
+    {
+        $cleanPath = ltrim($path, '/');
+        $disk = \Illuminate\Support\Facades\Storage::disk('public');
+
+        if (! $disk->exists($cleanPath)) {
+            abort(404, 'Gambar tidak ditemukan');
+        }
+
+        $fullPath = $disk->path($cleanPath);
+        $mime = $disk->mimeType($cleanPath) ?: 'application/octet-stream';
+
+        return response()->file($fullPath, [
+            'Access-Control-Allow-Origin' => '*',
+            'Access-Control-Allow-Methods' => 'GET, OPTIONS',
+            'Access-Control-Allow-Headers' => '*',
+            'Cache-Control' => 'public, max-age=86400',
+            'Content-Type' => $mime,
+        ]);
+    }
 }

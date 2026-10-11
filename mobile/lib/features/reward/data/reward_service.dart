@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../../auth/data/auth_service.dart';
+import 'reward_redemption_data.dart';
 
 class RewardService {
   final Dio _dio;
@@ -36,6 +37,25 @@ class RewardService {
         throw Exception(e.response?.data['message'] ?? 'Gagal menukar reward');
       }
       throw Exception('Gagal menukar reward: $e');
+    }
+  }
+
+  Future<List<RewardRedemptionData>> getMyRedemptions() async {
+    try {
+      final response = await _dio.get('/rewards/my-redemptions');
+      if (response.data is List) {
+        return (response.data as List)
+            .map((e) =>
+                RewardRedemptionData.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+      return [];
+    } catch (e) {
+      if (e is DioException && e.response != null) {
+        throw Exception(
+            e.response?.data['message'] ?? 'Gagal mengambil riwayat reward');
+      }
+      throw Exception('Gagal mengambil riwayat reward: $e');
     }
   }
 }

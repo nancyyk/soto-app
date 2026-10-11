@@ -32,6 +32,7 @@ class UserController extends Controller
         return response()->json([
             'user' => ['id' => $user->id, 'nama' => $user->nama, 'email' => $user->email],
             'saldo_poin' => $user->saldo_poin,
+            'total_botol' => (int) $user->transactions()->sum('jumlah_botol'),
             'transactions' => $transactions,
         ]);
     }

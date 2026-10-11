@@ -14,6 +14,8 @@ class Route extends Model
         'total_distance_km',
         'total_duration_min',
         'status',
+        'route_geometry',
+        'distance_source',
         'created_at',
     ];
 
@@ -22,8 +24,9 @@ class Route extends Model
         return [
             'total_distance_km' => 'decimal:2',
             'total_duration_min' => 'integer',
-            'status' => RouteStatus::class,
-            'created_at' => 'datetime',
+            'status'            => RouteStatus::class,
+            'route_geometry'    => 'array',
+            'created_at'        => 'datetime',
         ];
     }
 

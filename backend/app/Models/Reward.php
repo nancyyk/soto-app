@@ -38,7 +38,11 @@ class Reward extends Model
             return $this->gambar;
         }
 
-        return url('storage/' . ltrim($this->gambar, '/'));
+        if (str_starts_with($this->gambar, 'assets/')) {
+            return $this->gambar;
+        }
+
+        return url('api/v1/storage/' . ltrim($this->gambar, '/'));
     }
 
     public function redemptions(): HasMany

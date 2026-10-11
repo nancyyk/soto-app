@@ -27,4 +27,7 @@ return [
 
     // TSP solver: brute-force threshold
     'tsp_brute_force_max_nodes' => 10,
+
+    // OSRM routing server URL (public demo or self-hosted)
+    'osrm_url' => env('OSRM_URL', 'https://router.project-osrm.org'),
 ];

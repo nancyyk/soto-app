@@ -15,6 +15,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
     // --- Public ---------------------------------------------------------------
     Route::post('/auth/register', [AuthController::class, 'register'])->name('auth.register');
     Route::post('/auth/login', [AuthController::class, 'login'])->name('auth.login');
+    Route::get('/rewards', [App\Http\Controllers\Api\V1\RewardController::class, 'index'])->name('rewards.index');
+    Route::get('/storage/{path}', [App\Http\Controllers\Api\V1\RewardController::class, 'serveStorageImage'])
+        ->where('path', '.*')
+        ->name('storage.serve');
 
     // --- Authenticated --------------------------------------------------------
     Route::middleware('auth:sanctum')->group(function () {
@@ -38,7 +42,6 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             ->middleware('role:admin,petugas')->name('routes.recalculate');
 
                 // Rewards (User)
-        Route::get('/rewards', [App\Http\Controllers\Api\V1\RewardController::class, 'index']);
         Route::post('/rewards/redeem', [App\Http\Controllers\Api\V1\RewardController::class, 'redeem']);
         Route::get('/rewards/my-redemptions', [App\Http\Controllers\Api\V1\RewardController::class, 'myRedemptions']);
         

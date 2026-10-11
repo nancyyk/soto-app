@@ -96,5 +96,8 @@ class DatabaseSeeder extends Seeder
         foreach ($settings as $setting) {
             Setting::updateOrCreate(['key' => $setting['key']], $setting);
         }
+
+        // --- Rewards ----------------------------------------------------------
+        $this->call(RewardSeeder::class);
     }
 }

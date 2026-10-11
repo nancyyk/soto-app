@@ -14,13 +14,26 @@ class MachineLocationPage extends StatefulWidget {
 
 class _MachineLocationPageState extends State<MachineLocationPage> {
   static const Color green = Color(0xFF2D6A4F);
+  static const Color lightGreen = Color(0xFFE7F8EF);
+
+  final MapController _mapController = MapController();
+  final ScrollController _listScrollController = ScrollController();
+
   List<dynamic> _machines = [];
   bool _isLoading = true;
+  int _selectedIndex = -1;
 
   @override
   void initState() {
     super.initState();
     _fetchMachines();
+  }
+
+  @override
+  void dispose() {
+    _mapController.dispose();
+    _listScrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchMachines() async {
@@ -32,12 +45,48 @@ class _MachineLocationPageState extends State<MachineLocationPage> {
           _machines = response.data as List;
           _isLoading = false;
         });
+        // Auto-center to first machine with valid coords after load
+        if (_machines.isNotEmpty) {
+          _tryAnimateToMachine(0, autoSelect: false);
+        }
       }
     } catch (e) {
       debugPrint('Error fetching machines: $e');
       if (mounted) {
         setState(() => _isLoading = false);
       }
+    }
+  }
+
+  /// Parse lat/lng from a machine map entry. Returns null if invalid.
+  LatLng? _latLngOf(dynamic m) {
+    final lat = double.tryParse(m['latitude']?.toString() ?? '');
+    final lng = double.tryParse(m['longitude']?.toString() ?? '');
+    if (lat == null || lng == null || (lat == 0 && lng == 0)) return null;
+    return LatLng(lat, lng);
+  }
+
+  void _tryAnimateToMachine(int index, {bool autoSelect = true}) {
+    if (index < 0 || index >= _machines.length) return;
+    final pos = _latLngOf(_machines[index]);
+    if (pos == null) return;
+
+    if (autoSelect) {
+      setState(() => _selectedIndex = index);
+    }
+
+    // Animate map to the selected machine
+    _mapController.move(pos, 15.0);
+
+    // Scroll list to the selected item
+    if (autoSelect) {
+      const itemHeight = 88.0; // approx card height + margin
+      final offset = index * itemHeight;
+      _listScrollController.animateTo(
+        offset,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
     }
   }
 
@@ -69,12 +118,15 @@ class _MachineLocationPageState extends State<MachineLocationPage> {
                 child: SizedBox(
                   width: double.infinity,
                   height: 295,
-                  child: _isLoading 
+                  child: _isLoading
                     ? const Center(child: CircularProgressIndicator(color: green))
                     : FlutterMap(
+                        mapController: _mapController,
                         options: MapOptions(
-                          initialCenter: const LatLng(-6.200000, 106.816666), // Default Jakarta
-                          initialZoom: 12.0,
+                          initialCenter: _machines.isNotEmpty && _latLngOf(_machines.first) != null
+                              ? _latLngOf(_machines.first)!
+                              : const LatLng(-7.2575, 112.7521), // Default Surabaya
+                          initialZoom: 14.0,
                         ),
                         children: [
                           TileLayer(
@@ -82,16 +134,38 @@ class _MachineLocationPageState extends State<MachineLocationPage> {
                             userAgentPackageName: 'com.soto.app',
                           ),
                           MarkerLayer(
-                            markers: _machines.map((m) {
-                              final lat = double.tryParse(m['latitude']?.toString() ?? '0') ?? 0;
-                              final lng = double.tryParse(m['longitude']?.toString() ?? '0') ?? 0;
+                            markers: List.generate(_machines.length, (i) {
+                              final m = _machines[i];
+                              final pos = _latLngOf(m);
+                              if (pos == null) return null;
+                              final isSelected = _selectedIndex == i;
                               return Marker(
-                                point: LatLng(lat, lng),
-                                width: 40,
-                                height: 40,
-                                child: const Icon(Icons.location_on, color: Colors.red, size: 40),
+                                point: pos,
+                                width: isSelected ? 54 : 40,
+                                height: isSelected ? 54 : 40,
+                                child: GestureDetector(
+                                  onTap: () => _tryAnimateToMachine(i),
+                                  child: Stack(
+                                    alignment: Alignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.location_on,
+                                        color: isSelected ? green : Colors.red,
+                                        size: isSelected ? 54 : 40,
+                                        shadows: isSelected
+                                            ? [
+                                                Shadow(
+                                                  color: green.withOpacity(0.4),
+                                                  blurRadius: 8,
+                                                )
+                                              ]
+                                            : null,
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               );
-                            }).toList(),
+                            }).whereType<Marker>().toList(),
                           ),
                         ],
                       ),
@@ -117,47 +191,150 @@ class _MachineLocationPageState extends State<MachineLocationPage> {
                 : _machines.isEmpty
                   ? const Center(child: Text('Belum ada mesin terdaftar', style: TextStyle(color: Colors.grey)))
                   : ListView.builder(
+                      controller: _listScrollController,
                       padding: const EdgeInsets.symmetric(horizontal: 18),
                       itemCount: _machines.length,
                       itemBuilder: (context, index) {
                         final m = _machines[index];
                         final isOnline = m['status_online'] == 1 || m['status_online'] == true;
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: const Color(0xFFEEEEEE)),
-                            borderRadius: BorderRadius.circular(16),
-                            color: Colors.white,
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 48,
-                                height: 48,
-                                decoration: BoxDecoration(color: const Color(0xFFF6F8F6), borderRadius: BorderRadius.circular(12)),
-                                child: const Icon(Icons.storefront, color: green),
+                        final isSelected = _selectedIndex == index;
+                        final hasCoords = _latLngOf(m) != null;
+                        return GestureDetector(
+                          onTap: hasCoords ? () => _tryAnimateToMachine(index) : null,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 250),
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: isSelected ? green : const Color(0xFFEEEEEE),
+                                width: isSelected ? 2.0 : 1.0,
                               ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                              borderRadius: BorderRadius.circular(16),
+                              color: isSelected ? lightGreen.withOpacity(0.5) : Colors.white,
+                              boxShadow: isSelected
+                                  ? [
+                                      BoxShadow(
+                                        color: green.withOpacity(0.12),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      )
+                                    ]
+                                  : null,
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 48,
+                                  height: 48,
+                                  decoration: BoxDecoration(
+                                    color: isSelected ? lightGreen : const Color(0xFFF6F8F6),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Icon(Icons.storefront, color: isSelected ? green : const Color(0xFF777777)),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        m['nama_lokasi'] ?? 'Mesin SOTO',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 14,
+                                          color: isSelected ? green : const Color(0xFF222222),
+                                        ),
+                                       ),
+                                      const SizedBox(height: 6),
+                                      Builder(builder: (_) {
+                                        final current = (m['kapasitas_terkini'] as num?)?.toInt() ?? 0;
+                                        final threshold = (m['threshold_capacity'] as num?)?.toInt() ?? 100;
+                                        final maxVal = threshold > 0 ? threshold : 100;
+                                        final pct = (current / maxVal).clamp(0.0, 1.0);
+                                        final pctInt = (pct * 100).round();
+                                        final Color barColor = pct >= 0.9
+                                            ? Colors.red
+                                            : pct >= 0.6
+                                                ? Colors.orange
+                                                : green;
+                                        return Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Text(
+                                                  'Kapasitas: ',
+                                                  style: const TextStyle(color: Color(0xFF777777), fontSize: 11),
+                                                ),
+                                                Text(
+                                                  '$pctInt%',
+                                                  style: TextStyle(
+                                                    color: barColor,
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                                Text(
+                                                  ' ($current/$maxVal)',
+                                                  style: const TextStyle(color: Color(0xFFAAAAAA), fontSize: 10),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 4),
+                                            ClipRRect(
+                                              borderRadius: BorderRadius.circular(4),
+                                              child: LinearProgressIndicator(
+                                                value: pct,
+                                                minHeight: 4,
+                                                backgroundColor: const Color(0xFFEEEEEE),
+                                                valueColor: AlwaysStoppedAnimation<Color>(barColor),
+                                              ),
+                                            ),
+                                          ],
+                                        );
+                                      }),
+                                      if (!hasCoords)
+                                        const Padding(
+                                          padding: EdgeInsets.only(top: 2),
+                                          child: Text(
+                                            'Koordinat belum tersedia',
+                                            style: TextStyle(color: Colors.orange, fontSize: 10),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
-                                    Text(m['nama_lokasi'] ?? 'Mesin SOTO', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Color(0xFF222222))),
-                                    const SizedBox(height: 4),
-                                    Text('Kapasitas: ${m['kapasitas_terkini'] ?? 0}/${m['kapasitas_maksimal'] ?? 0}', style: const TextStyle(color: Color(0xFF777777), fontSize: 12)),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: isOnline ? const Color(0xFFE7F8EF) : Colors.red.shade50,
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Text(
+                                        isOnline ? 'Online' : 'Offline',
+                                        style: TextStyle(
+                                          color: isOnline ? green : Colors.red,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                    if (hasCoords) ...[
+                                      const SizedBox(height: 6),
+                                      Icon(
+                                        Icons.my_location_rounded,
+                                        size: 14,
+                                        color: isSelected ? green : const Color(0xFFBBBBBB),
+                                      ),
+                                    ],
                                   ],
                                 ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: isOnline ? const Color(0xFFE7F8EF) : Colors.red.shade50,
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(isOnline ? 'Online' : 'Offline', style: TextStyle(color: isOnline ? green : Colors.red, fontSize: 10, fontWeight: FontWeight.w600)),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         );
                       },

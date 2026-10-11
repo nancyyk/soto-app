@@ -25,6 +25,8 @@ class _HomePageState extends State<HomePage> {
   Map<String, dynamic>? _user;
   int _saldoPoin = 0;
   int _totalBotol = 0;
+  int _unreadNotifCount = 0;
+  Map<String, dynamic>? _latestTransaction;
   bool _isLoading = true;
 
   @override
@@ -37,14 +39,29 @@ class _HomePageState extends State<HomePage> {
     try {
       final user = await _authService.getUser();
       if (user != null && user['id'] != null) {
-        final data = await _homeService.getUserPoints(user['id']);
+        final results = await Future.wait([
+          _homeService.getUserPoints(user['id']),
+          _homeService.getUnreadNotificationCount(),
+        ]);
+        final data = results[0] as Map<String, dynamic>;
+        final unreadCount = results[1] as int;
+
         if (mounted) {
           setState(() {
             _user = user;
             _saldoPoin = data['saldo_poin'] ?? 0;
-            if (data['transactions'] != null && data['transactions']['data'] != null) {
+            _unreadNotifCount = unreadCount;
+            if (data['total_botol'] != null) {
+              _totalBotol = (data['total_botol'] as num).toInt();
+            } else if (data['transactions'] != null && data['transactions']['data'] != null) {
               final txs = data['transactions']['data'] as List;
               _totalBotol = txs.fold(0, (sum, item) => sum + (item['jumlah_botol'] as int? ?? 0));
+            }
+            if (data['transactions'] != null && data['transactions']['data'] != null) {
+              final txs = data['transactions']['data'] as List;
+              _latestTransaction = txs.isNotEmpty ? Map<String, dynamic>.from(txs.first as Map) : null;
+            } else {
+              _latestTransaction = null;
             }
             _isLoading = false;
           });
@@ -58,6 +75,34 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  String _formatTxDateTime(String? iso) {
+    if (iso == null || iso.isEmpty) return '-';
+    try {
+      final dt = DateTime.parse(iso).toLocal();
+      final now = DateTime.now();
+      final isToday = dt.year == now.year && dt.month == now.month && dt.day == now.day;
+      final isYesterday = dt.year == now.year && dt.month == now.month && dt.day == now.day - 1;
+      final timeStr = '${dt.hour.toString().padLeft(2, '0')}.${dt.minute.toString().padLeft(2, '0')} WIB';
+      if (isToday) {
+        return 'Hari ini $timeStr';
+      } else if (isYesterday) {
+        return 'Kemarin $timeStr';
+      } else {
+        final months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        return '${dt.day} ${months[dt.month - 1]} $timeStr';
+      }
+    } catch (_) {
+      return iso;
+    }
+  }
+
+  String _getMachineName(Map<String, dynamic> tx) {
+    if (tx['machine'] != null && tx['machine']['nama_lokasi'] != null) {
+      return tx['machine']['nama_lokasi'].toString();
+    }
+    return 'Mesin SOTO #${tx['machine_id'] ?? '-'}';
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -67,6 +112,7 @@ class _HomePageState extends State<HomePage> {
     }
 
     final userName = _user?['nama'] ?? 'Pengguna';
+    final levelInfo = _LevelInfo.calculate(_totalBotol);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -131,11 +177,11 @@ class _HomePageState extends State<HomePage> {
                                 ),
                               ),
                               const SizedBox(height: 3),
-                              const Text(
-                                'Level 1 · Pemula',
+                              Text(
+                                'Level ${levelInfo.level} · ${levelInfo.title}',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: TextStyle(fontSize: 12, color: HomePage.textGrey),
+                                style: const TextStyle(fontSize: 12, color: HomePage.textGrey),
                               ),
                             ],
                           ),
@@ -144,15 +190,47 @@ class _HomePageState extends State<HomePage> {
                         const SizedBox(width: 8),
 
                         InkWell(
-                          onTap: () => context.push(AppRouter.notification),
+                          onTap: () async {
+                            await context.push(AppRouter.notification);
+                            _loadData();
+                          },
                           borderRadius: BorderRadius.circular(20),
-                          child: const Padding(
-                            padding: EdgeInsets.all(6),
-                            child: Icon(
-                              Icons.notifications_none_rounded,
-                              size: 26,
-                              color: HomePage.textDark,
-                            ),
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              const Padding(
+                                padding: EdgeInsets.all(6),
+                                child: Icon(
+                                  Icons.notifications_none_rounded,
+                                  size: 26,
+                                  color: HomePage.textDark,
+                                ),
+                              ),
+                              if (_unreadNotifCount > 0)
+                                Positioned(
+                                  top: 3,
+                                  right: 3,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFE63946),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: Colors.white, width: 1.5),
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      _unreadNotifCount > 9 ? '9+' : '$_unreadNotifCount',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w700,
+                                        height: 1.0,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
                       ],
@@ -268,31 +346,45 @@ class _HomePageState extends State<HomePage> {
                               border: Border.all(color: const Color(0xFFE1E1E1)),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Column(
+                            child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  'Progres level',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: HomePage.textDark,
-                                    fontWeight: FontWeight.w500,
-                                  ),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'Progres level',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: HomePage.textDark,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    Text(
+                                      levelInfo.isMax
+                                          ? 'Maksimal'
+                                          : '${levelInfo.currentInTier}/${levelInfo.targetInTier}',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: HomePage.green,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
                                 ),
 
-                                SizedBox(height: 10),
-
                                 ClipRRect(
-                                  borderRadius: BorderRadius.all(
+                                  borderRadius: const BorderRadius.all(
                                     Radius.circular(10),
                                   ),
                                   child: LinearProgressIndicator(
-                                    value: 0.25,
+                                    value: levelInfo.progress,
                                     minHeight: 5,
-                                    backgroundColor: Color(0xFFE4E4E4),
-                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                    backgroundColor: const Color(0xFFE4E4E4),
+                                    valueColor: const AlwaysStoppedAnimation<Color>(
                                       HomePage.green,
                                     ),
                                   ),
@@ -339,8 +431,10 @@ class _HomePageState extends State<HomePage> {
                           child: _QuickMenu(
                             icon: Icons.notifications_none,
                             label: 'Notifikasi',
-                            onTap: () {
-                              context.push(AppRouter.notification);
+                            badgeCount: _unreadNotifCount,
+                            onTap: () async {
+                              await context.push(AppRouter.notification);
+                              _loadData();
                             },
                           ),
                         ),
@@ -402,91 +496,150 @@ class _HomePageState extends State<HomePage> {
                     ),
 
                     const SizedBox(height: 17),
-                    const Text(
-                      'Riwayat Terakhir',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: HomePage.textDark,
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Riwayat Terakhir',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: HomePage.textDark,
+                          ),
+                        ),
+                        if (_latestTransaction != null)
+                          GestureDetector(
+                            onTap: () {
+                              context.go(AppRouter.history);
+                            },
+                            child: const Text(
+                              'Lihat Semua',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: HomePage.green,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
 
                     const SizedBox(height: 9),
 
-                    InkWell(
-                      onTap: () {
-                        context.go(AppRouter.history);
-                      },
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(13),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: const Color(0xFFE1E1E1)),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Column(
-                          children: [
-                            Row(
+                    _latestTransaction == null
+                        ? Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF9F9F9),
+                              border: Border.all(color: const Color(0xFFEBEBEB)),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Column(
                               children: [
-                                Expanded(
-                                  child: Text(
-                                    '+ 12 Poin',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: HomePage.green,
-                                    ),
-                                  ),
+                                Icon(
+                                  Icons.receipt_long_outlined,
+                                  size: 32,
+                                  color: HomePage.textGrey,
                                 ),
-
-                                SizedBox(width: 8),
-
+                                SizedBox(height: 6),
                                 Text(
-                                  'Mesin SOTO #21',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                                  'Belum ada transaksi',
                                   style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
                                     color: HomePage.textDark,
                                   ),
                                 ),
-                              ],
-                            ),
-
-                            SizedBox(height: 11),
-
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    'Mesin SOTO #21',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: HomePage.textGrey,
-                                    ),
-                                  ),
-                                ),
-
-                                SizedBox(width: 8),
-
+                                SizedBox(height: 2),
                                 Text(
-                                  'Hari ini 10.30',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                                  'Tukarkan botol pertamamu di mesin SOTO!',
                                   style: TextStyle(fontSize: 11, color: HomePage.textGrey),
                                 ),
                               ],
                             ),
-                          ],
-                        ),
-                      ),
-                    ),
+                          )
+                        : InkWell(
+                            onTap: () {
+                              context.go(AppRouter.history);
+                            },
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(13),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: const Color(0xFFE1E1E1)),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Column(
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          '+ ${_latestTransaction!['poin_diperoleh'] ?? 0} Poin',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                            color: HomePage.green,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: HomePage.lightGreen,
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          '${_latestTransaction!['jumlah_botol'] ?? 0} Botol',
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color: HomePage.green,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+
+                                  const SizedBox(height: 10),
+
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          _getMachineName(_latestTransaction!),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w500,
+                                            color: HomePage.textDark,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        _formatTxDateTime(
+                                          _latestTransaction!['created_at']?.toString(),
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: HomePage.textGrey,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
 
                     const SizedBox(height: 8),
                   ],
@@ -578,11 +731,13 @@ class _QuickMenu extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+  final int badgeCount;
 
   const _QuickMenu({
     required this.icon,
     required this.label,
     required this.onTap,
+    this.badgeCount = 0,
   });
 
   @override
@@ -594,14 +749,43 @@ class _QuickMenu extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF5F5F5),
-                borderRadius: BorderRadius.circular(9),
-              ),
-              child: Icon(icon, size: 23, color: const Color(0xFF555555)),
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF5F5F5),
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: Icon(icon, size: 23, color: const Color(0xFF555555)),
+                ),
+                if (badgeCount > 0)
+                  Positioned(
+                    top: -2,
+                    right: -2,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE63946),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.white, width: 1.5),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        badgeCount > 9 ? '9+' : '$badgeCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          height: 1.0,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 6),
             Text(
@@ -619,5 +803,68 @@ class _QuickMenu extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _LevelInfo {
+  final int level;
+  final String title;
+  final double progress;
+  final int currentInTier;
+  final int targetInTier;
+  final bool isMax;
+
+  const _LevelInfo({
+    required this.level,
+    required this.title,
+    required this.progress,
+    required this.currentInTier,
+    required this.targetInTier,
+    this.isMax = false,
+  });
+
+  static _LevelInfo calculate(int totalBotol) {
+    if (totalBotol < 20) {
+      return _LevelInfo(
+        level: 1,
+        title: 'Pemula',
+        progress: (totalBotol / 20.0).clamp(0.0, 1.0),
+        currentInTier: totalBotol,
+        targetInTier: 20,
+      );
+    } else if (totalBotol < 50) {
+      return _LevelInfo(
+        level: 2,
+        title: 'Pejuang Lingkungan',
+        progress: ((totalBotol - 20) / 30.0).clamp(0.0, 1.0),
+        currentInTier: totalBotol - 20,
+        targetInTier: 30,
+      );
+    } else if (totalBotol < 100) {
+      return _LevelInfo(
+        level: 3,
+        title: 'Pahlawan Daur Ulang',
+        progress: ((totalBotol - 50) / 50.0).clamp(0.0, 1.0),
+        currentInTier: totalBotol - 50,
+        targetInTier: 50,
+      );
+    } else if (totalBotol < 200) {
+      return _LevelInfo(
+        level: 4,
+        title: 'Sahabat Bumi',
+        progress: ((totalBotol - 100) / 100.0).clamp(0.0, 1.0),
+        currentInTier: totalBotol - 100,
+        targetInTier: 100,
+      );
+    } else {
+      return const _LevelInfo(
+        level: 5,
+        title: 'Legenda Hijau',
+        progress: 1.0,
+        currentInTier: 200,
+        targetInTier: 200,
+        isMax: true,
+      );
+    }
   }
 }

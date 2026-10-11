@@ -121,7 +121,23 @@ class _RewardPageState extends State<RewardPage> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 36),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: () => context.push(AppRouter.rewardHistory),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: const Color(0xFFE4E6E4)),
+                      ),
+                      child: const Icon(
+                        Icons.receipt_long_rounded,
+                        size: 20,
+                        color: RewardPage.green,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -203,38 +219,59 @@ class _RewardPageState extends State<RewardPage> {
               ),
             ),
             const SizedBox(height: 18),
-            if (_isLoading) const Expanded(child: Center(child: CircularProgressIndicator(color: RewardPage.green))) else Expanded( child: _filteredRewards.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'Reward tidak ditemukan',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Color(0xFF7A7A7A),
-                        ),
-                      ),
-                    )
-                  : ListView.builder(
-                      physics: const BouncingScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                      itemCount: _filteredRewards.length,
-                      itemBuilder: (context, index) {
-                        final reward = _filteredRewards[index];
-
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 14),
-                          child: _RewardCard(
-                            reward: reward,
-                            onTap: () {
-                              context.push(
-                                AppRouter.rewardDetail,
-                                extra: reward,
-                              );
-                            },
+            if (_isLoading)
+              const Expanded(
+                child: Center(
+                  child: CircularProgressIndicator(color: RewardPage.green),
+                ),
+              )
+            else
+              Expanded(
+                child: RefreshIndicator(
+                  color: RewardPage.green,
+                  onRefresh: _loadRewards,
+                  child: _filteredRewards.isEmpty
+                      ? ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: const [
+                            SizedBox(height: 100),
+                            Center(
+                              child: Text(
+                                'Reward tidak ditemukan',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Color(0xFF7A7A7A),
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                      : ListView.builder(
+                          physics: const AlwaysScrollableScrollPhysics(
+                            parent: BouncingScrollPhysics(),
                           ),
-                        );
-                      },
-                    ),
-            ),
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                          itemCount: _filteredRewards.length,
+                          itemBuilder: (context, index) {
+                            final reward = _filteredRewards[index];
+
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 14),
+                              child: _RewardCard(
+                                reward: reward,
+                                onTap: () async {
+                                  await context.push(
+                                    AppRouter.rewardDetail,
+                                    extra: reward,
+                                  );
+                                  _loadRewards();
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ),
           ],
         ),
       ),

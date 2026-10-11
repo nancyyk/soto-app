@@ -47,6 +47,11 @@ class _NotificationPageState extends State<NotificationPage> {
           _notifications = parsed;
           _isLoading = false;
         });
+
+        // Tandai semua dibaca di backend agar badge notifikasi berkurang
+        try {
+          _authService.dio.patch('/notifications/read-all');
+        } catch (_) {}
       } else {
         setState(() {
           _isLoading = false;
@@ -54,7 +59,7 @@ class _NotificationPageState extends State<NotificationPage> {
       }
     } catch (e) {
       setState(() {
-        _error = 'Gagal memuat notifikasi';
+        _error = 'Gagal memuat notifikasi: $e';
         _isLoading = false;
       });
     }
@@ -151,12 +156,12 @@ class _NotificationPageState extends State<NotificationPage> {
               child: _notifications.isEmpty
                   ? ListView(
                       padding: const EdgeInsets.fromLTRB(18, 26, 18, 24),
-                      children: const [
-                        SizedBox(height: 100),
+                      children: [
+                        const SizedBox(height: 100),
                         Center(
                           child: Text(
-                            'Belum ada notifikasi',
-                            style: TextStyle(
+                            _error ?? 'Belum ada notifikasi',
+                            style: const TextStyle(
                               color: Colors.black54,
                               fontSize: 14,
                             ),

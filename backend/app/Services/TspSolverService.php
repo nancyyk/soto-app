@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Machine;
 use App\Models\Route;
 use App\Models\RouteStop;
+use App\Models\Setting;
 
 readonly class TspResult
 {
@@ -127,6 +128,8 @@ class NearestNeighborTwoOptStrategy implements TspSolverStrategy
 
 class TspSolverService
 {
+    public function __construct(private readonly OsrmService $osrm) {}
+
     public function haversine(float $lat1, float $lon1, float $lat2, float $lon2): float
     {
         $earthRadiusKm = 6371.0;
@@ -165,37 +168,57 @@ class TspSolverService
 
     public function solveAndPersist(array $depot): ?Route
     {
-        $eligibleMachines = Machine::aboveThreshold()->get();
+        $threshold = (int) Setting::get('tsp_threshold', config('soto.default_threshold', 80));
+
+        $eligibleMachines = Machine::where(function ($q) use ($threshold) {
+            $q->where('kapasitas_terkini', '>=', $threshold)
+              ->orWhereColumn('kapasitas_terkini', '>=', 'threshold_capacity');
+        })->get();
 
         if ($eligibleMachines->isEmpty()) {
             return null;
         }
 
-        $nodes = [['lat' => $depot['lat'], 'lng' => $depot['lng']]];
+        // Susun daftar node: depot (index 0) + mesin-mesin eligible
+        $nodes = [['lat' => (float) $depot['lat'], 'lng' => (float) $depot['lng']]];
         foreach ($eligibleMachines as $machine) {
-            $nodes[] = ['lat' => $machine->latitude, 'lng' => $machine->longitude];
+            $nodes[] = ['lat' => (float) $machine->latitude, 'lng' => (float) $machine->longitude];
         }
 
-        $matrix = $this->buildDistanceMatrix($nodes);
-        $strategy = $this->selectStrategy(count($nodes));
-        $result = $strategy->solve($matrix, depotIndex: 0);
+        // === Bangun Matriks Jarak via OSRM (fallback: Haversine) ===
+        ['matrix' => $matrix, 'source' => $distanceSource] = $this->osrm->buildDistanceMatrix($nodes, $this);
 
+        // === Solve TSP ===
+        $strategy = $this->selectStrategy(count($nodes));
+        $result   = $strategy->solve($matrix, depotIndex: 0);
+
+        // === Ambil Polyline Jalan Aspal via OSRM Route API ===
+        // Susun urutan node yang dikunjungi (termasuk balik ke depot)
+        $orderedNodes = array_map(
+            fn ($idx) => $nodes[$idx],
+            $result->orderedNodeIndices
+        );
+        $roadPolyline = $this->osrm->getRoutePolyline($orderedNodes);
+
+        // === Simpan Route ke DB ===
         $route = Route::create([
             'total_distance_km' => $result->totalDistanceKm,
             'total_duration_min' => $result->totalDurationMin,
-            'status' => 'pending',
-            'created_at' => now(),
+            'status'            => 'pending',
+            'route_geometry'    => $roadPolyline,
+            'distance_source'   => $distanceSource,
+            'created_at'        => now(),
         ]);
 
         foreach ($result->orderedNodeIndices as $order => $nodeIdx) {
             if ($nodeIdx === 0) {
-                continue;
+                continue; // skip depot
             }
             $machine = $eligibleMachines[$nodeIdx - 1];
             RouteStop::create([
-                'route_id' => $route->id,
+                'route_id'  => $route->id,
                 'machine_id' => $machine->id,
-                'urutan' => $order,
+                'urutan'    => $order,
             ]);
         }
 

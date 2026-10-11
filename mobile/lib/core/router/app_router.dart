@@ -13,8 +13,11 @@ import '../../features/history/pages/history_page.dart';
 import '../../features/history/pages/transaction_detail_page.dart';
 
 import '../../features/reward/data/reward_data.dart';
+import '../../features/reward/data/reward_redemption_data.dart';
 import '../../features/reward/pages/reward_page.dart';
 import '../../features/reward/pages/reward_detail_page.dart';
+import '../../features/reward/pages/reward_history_page.dart';
+import '../../features/reward/pages/reward_redemption_detail_page.dart';
 
 import '../../features/machine/machine_location_page.dart';
 import '../../features/notification/notification_page.dart';
@@ -42,6 +45,8 @@ class AppRouter {
 
   static const String reward = '/reward';
   static const String rewardDetail = '/reward/detail';
+  static const String rewardHistory = '/reward/history';
+  static const String rewardRedemptionDetail = '/reward/history/detail';
 
   static const String machine = '/machine';
   static const String notification = '/notification';
@@ -123,6 +128,22 @@ class AppRouter {
             return const RewardPage();
           }
           return RewardDetailPage(reward: extra);
+        },
+      ),
+      GoRoute(
+        path: rewardHistory,
+        builder: (BuildContext context, GoRouterState state) {
+          return const RewardHistoryPage();
+        },
+      ),
+      GoRoute(
+        path: rewardRedemptionDetail,
+        builder: (BuildContext context, GoRouterState state) {
+          final extra = state.extra;
+          if (extra is! RewardRedemptionData) {
+            return const RewardHistoryPage();
+          }
+          return RewardRedemptionDetailPage(redemption: extra);
         },
       ),
       GoRoute(

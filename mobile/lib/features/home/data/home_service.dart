@@ -14,4 +14,16 @@ class HomeService {
       throw Exception('Gagal mengambil data poin: $e');
     }
   }
+
+  Future<int> getUnreadNotificationCount() async {
+    try {
+      final response = await _dio.get('/notifications/unread-count');
+      if (response.statusCode == 200 && response.data is Map) {
+        return (response.data['unread_count'] as num?)?.toInt() ?? 0;
+      }
+      return 0;
+    } catch (e) {
+      return 0;
+    }
+  }
 }
