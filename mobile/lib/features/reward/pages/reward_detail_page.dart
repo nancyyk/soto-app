@@ -1,8 +1,9 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/reward_data.dart';
 import '../data/reward_service.dart';
+import '../widgets/reward_image.dart';
 
 class RewardDetailPage extends StatelessWidget {
   final RewardData reward;
@@ -75,22 +76,19 @@ class RewardDetailPage extends StatelessWidget {
                       clipBehavior: Clip.antiAlias,
                       child: Padding(
                         padding: const EdgeInsets.all(24),
-                        child: Image.asset(
-                          reward.imagePath,
+                        child: RewardImage(
+                          imagePath: reward.imagePath,
                           fit: BoxFit.contain,
-                          filterQuality: FilterQuality.high,
-                          errorBuilder: (context, error, stackTrace) {
-                            return const Center(
-                              child: Text(
-                                'Reward',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w700,
-                                  color: green,
-                                ),
+                          fallback: const Center(
+                            child: Text(
+                              'Reward',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: green,
                               ),
-                            );
-                          },
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -422,10 +420,10 @@ class _RedeemDialogState extends State<_RedeemDialog> {
                       height: 76,
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(color: lightGreen, borderRadius: BorderRadius.circular(12)),
-                      child: Image.asset(
-                        reward.imagePath,
+                      child: RewardImage(
+                        imagePath: reward.imagePath,
                         fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) => const Icon(Icons.card_giftcard, color: green),
+                        fallback: const Icon(Icons.card_giftcard, color: green),
                       ),
                     ),
                     const SizedBox(width: 14),

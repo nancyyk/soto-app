@@ -6,7 +6,7 @@
     @endif
 
     <div class="card p-4 flex flex-wrap gap-3 items-center">
-        <input wire:model.live.debounce.300ms="search" type="search" placeholder="Cari kode, nama, kategori, deskripsi..." class="form-input w-auto text-sm flex-1 min-w-[200px]" />
+        <input wire:model.live.debounce.300ms="search" type="search" placeholder="Cari kode, nama, kategori, deskripsi..." class="form-input w-auto text-sm flex-1 min-w-50" />
         
         <select wire:model.live="filterKategori" class="form-input w-auto text-sm">
             <option value="">Semua Kategori</option>
@@ -49,7 +49,7 @@
                         @php
                             $imageIsUrl = $reward->gambar && filter_var($reward->gambar, FILTER_VALIDATE_URL);
                             $hasStoredImage = $imageIsUrl || ($reward->gambar && \Illuminate\Support\Facades\Storage::disk('public')->exists($reward->gambar));
-                            $imageSource = $imageIsUrl ? $reward->gambar : ($hasStoredImage ? '/storage/' . ltrim($reward->gambar, '/') : null);
+                            $imageSource = $imageIsUrl ? $reward->gambar : ($hasStoredImage ? asset('storage/' . ltrim($reward->gambar, '/')) : null);
                         @endphp
                         <td class="table-td font-mono text-xs font-semibold text-gray-700">
                             {{ $reward->kode }}
@@ -59,7 +59,7 @@
                                 @if($imageSource)
                                     <img src="{{ $imageSource }}" alt="{{ $reward->nama }}" class="w-10 h-10 object-cover rounded-md border border-gray-200" onerror="this.style.display='none';this.nextElementSibling.classList.remove('hidden')" />
                                 @endif
-                                <div class="{{ $imageSource ? 'hidden' : '' }} w-10 h-10 rounded-md bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 font-bold text-xs flex-shrink-0">
+                                <div class="{{ $imageSource ? 'hidden' : '' }} w-10 h-10 rounded-md bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 font-bold text-xs shrink-0">
                                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M21 11.25v8.25a1.5 1.5 0 01-1.5 1.5H4.5a1.5 1.5 0 01-1.5-1.5v-8.25M21 11.25H3m18 0l-1.5-4.5H4.5L3 11.25m9-8.25v8.25M9.75 3a2.25 2.25 0 00-2.25 2.25c0 1.243 1.007 2.25 2.25 2.25h2.25V5.25A2.25 2.25 0 009.75 3zm4.5 0a2.25 2.25 0 012.25 2.25c0 1.243-1.007 2.25-2.25 2.25h-2.25V5.25A2.25 2.25 0 0114.25 3z" />
                                     </svg>
@@ -186,7 +186,7 @@
                             @php
                                 $oldImageIsUrl = filter_var($gambarLama, FILTER_VALIDATE_URL);
                                 $oldImageExists = $oldImageIsUrl || \Illuminate\Support\Facades\Storage::disk('public')->exists($gambarLama);
-                                $oldImageSource = $oldImageIsUrl ? $gambarLama : ($oldImageExists ? '/storage/' . ltrim($gambarLama, '/') : null);
+                                $oldImageSource = $oldImageIsUrl ? $gambarLama : ($oldImageExists ? asset('storage/' . ltrim($gambarLama, '/')) : null);
                             @endphp
                             @if($oldImageSource)
                                 <div class="mt-2 flex items-center gap-3 p-2 bg-gray-50 rounded border border-gray-200">

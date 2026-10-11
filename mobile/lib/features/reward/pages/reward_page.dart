@@ -5,6 +5,7 @@ import '../../../core/router/app_router.dart';
 import '../../../core/widgets/bottom_nav_bar.dart';
 import '../data/reward_data.dart';
 import '../data/reward_service.dart';
+import '../widgets/reward_image.dart';
 
 class RewardPage extends StatefulWidget {
   const RewardPage({super.key});
@@ -273,22 +274,19 @@ class _RewardCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                 ),
                 clipBehavior: Clip.antiAlias,
-                child: Image.asset(
-                  reward.imagePath,
+                child: RewardImage(
+                  imagePath: reward.imagePath,
                   fit: BoxFit.contain,
-                  filterQuality: FilterQuality.high,
-                  errorBuilder: (context, error, stackTrace) {
-                    return const Center(
-                      child: Text(
-                        'Reward',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: RewardPage.green,
-                        ),
+                  fallback: const Center(
+                    child: Text(
+                      'Reward',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: RewardPage.green,
                       ),
-                    );
-                  },
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 14),

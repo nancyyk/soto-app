@@ -29,7 +29,7 @@ class _NotificationPageState extends State<NotificationPage> {
   Future<void> _fetchNotifications() async {
     setState(() {
       _isLoading = true;
-      _error = null;
+      _error = null ;
     });
 
     try {

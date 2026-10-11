@@ -12,6 +12,11 @@ class AuthService {
     return 'http://192.168.50.29:8000/api/v1'; // sesuaikan IP Anda
   }
 
+  /// Base URL server tanpa prefix /api/v1 (untuk asset storage seperti gambar)
+  static String get serverBaseUrl {
+    return baseUrl.replaceAll(RegExp(r'/api/v1/?$'), '');
+  }
+
   static const String _tokenKey = 'auth_token';
   static const String _userKey = 'auth_user';
 
