@@ -166,6 +166,56 @@ class AuthService {
     }
   }
 
+  // ---------- UPDATE LOCAL USER ----------
+  Future<void> updateLocalUser(Map<String, dynamic> updatedFields) async {
+    final current = await getUser() ?? {};
+    current.addAll(updatedFields);
+    await saveUser(current);
+  }
+
+  // ---------- UPDATE PROFILE ----------
+  Future<Map<String, dynamic>> updateProfile({
+    required String name,
+  }) async {
+    try {
+      final response = await _dio.put(
+        '/me',
+        data: {'nama': name},
+      );
+
+      final data = response.data as Map<String, dynamic>;
+      if (data['user'] != null) {
+        await updateLocalUser(data['user'] as Map<String, dynamic>);
+      }
+      return data;
+    } on DioException catch (e) {
+      throw Exception(_parseError(e));
+    } catch (e) {
+      throw Exception('Terjadi kesalahan: $e');
+    }
+  }
+
+  // ---------- CHANGE PASSWORD ----------
+  Future<void> changePassword({
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    try {
+      await _dio.put(
+        '/me/password',
+        data: {
+          'old_password': oldPassword,
+          'new_password': newPassword,
+          'new_password_confirmation': newPassword,
+        },
+      );
+    } on DioException catch (e) {
+      throw Exception(_parseError(e));
+    } catch (e) {
+      throw Exception('Terjadi kesalahan: $e');
+    }
+  }
+
   // ---------- HELPER ----------
   String _parseError(DioException e) {
     if (e.type == DioExceptionType.connectionTimeout ||
@@ -190,4 +240,4 @@ class AuthService {
     }
     return e.message ?? 'Terjadi kesalahan tidak diketahui.';
   }
-}
+}

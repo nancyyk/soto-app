@@ -20,9 +20,13 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         ->where('path', '.*')
         ->name('storage.serve');
 
-    // --- Authenticated --------------------------------------------------------
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
+
+        // Profile
+        Route::get('/me', [UserController::class, 'profile'])->name('me.show');
+        Route::put('/me', [UserController::class, 'updateProfile'])->name('me.update');
+        Route::put('/me/password', [UserController::class, 'changePassword'])->name('me.password');
 
         // Machines
         Route::get('/machines', [MachineController::class, 'index'])->name('machines.index');

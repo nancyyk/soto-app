@@ -155,7 +155,7 @@ class _MachineLocationPageState extends State<MachineLocationPage> {
                                         shadows: isSelected
                                             ? [
                                                 Shadow(
-                                                  color: green.withOpacity(0.4),
+                                                  color: green.withValues(alpha: 0.4),
                                                   blurRadius: 8,
                                                 )
                                               ]
@@ -211,11 +211,11 @@ class _MachineLocationPageState extends State<MachineLocationPage> {
                                 width: isSelected ? 2.0 : 1.0,
                               ),
                               borderRadius: BorderRadius.circular(16),
-                              color: isSelected ? lightGreen.withOpacity(0.5) : Colors.white,
+                              color: isSelected ? lightGreen.withValues(alpha: 0.5) : Colors.white,
                               boxShadow: isSelected
                                   ? [
                                       BoxShadow(
-                                        color: green.withOpacity(0.12),
+                                        color: green.withValues(alpha: 0.12),
                                         blurRadius: 8,
                                         offset: const Offset(0, 2),
                                       )

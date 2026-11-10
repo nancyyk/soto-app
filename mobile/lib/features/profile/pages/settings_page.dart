@@ -1,5 +1,8 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+
+import '../../../core/providers/language_provider.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -11,10 +14,84 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   bool _pushNotifications = true;
   bool _emailNotifications = false;
-  String _selectedLanguage = 'Bahasa Indonesia';
+
+  void _showLanguagePicker() {
+    final languageProvider = context.read<LanguageProvider>();
+    final languages = [
+      {'locale': const Locale('id'), 'name': 'Bahasa Indonesia', 'flag': '🇮🇩'},
+      {'locale': const Locale('en'), 'name': 'English', 'flag': '🇬🇧'},
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Pilih Bahasa',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF222222),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ...languages.map((lang) {
+                  final locale = lang['locale'] as Locale;
+                  final isSelected =
+                      languageProvider.locale.languageCode ==
+                      locale.languageCode;
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Text(
+                      lang['flag'] as String,
+                      style: const TextStyle(fontSize: 24),
+                    ),
+                    title: Text(
+                      lang['name'] as String,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: isSelected
+                            ? FontWeight.w700
+                            : FontWeight.w400,
+                        color: isSelected
+                            ? const Color(0xFF2D6A4F)
+                            : const Color(0xFF333333),
+                      ),
+                    ),
+                    trailing: isSelected
+                        ? const Icon(
+                            Icons.check_circle,
+                            color: Color(0xFF2D6A4F),
+                          )
+                        : null,
+                    onTap: () {
+                      languageProvider.setLocale(locale);
+                      Navigator.pop(ctx);
+                    },
+                  );
+                }),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final languageProvider = context.watch<LanguageProvider>();
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9F8),
       appBar: AppBar(
@@ -81,9 +158,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       ),
                       value: _pushNotifications,
                       onChanged: (val) {
-                        setState(() {
-                          _pushNotifications = val;
-                        });
+                        setState(() => _pushNotifications = val);
                       },
                     ),
                     const Divider(height: 1, color: Color(0xFFEDEDED)),
@@ -106,15 +181,15 @@ class _SettingsPageState extends State<SettingsPage> {
                       ),
                       value: _emailNotifications,
                       onChanged: (val) {
-                        setState(() {
-                          _emailNotifications = val;
-                        });
+                        setState(() => _emailNotifications = val);
                       },
                     ),
                   ],
                 ),
               ),
+
               const SizedBox(height: 24),
+
               const Text(
                 'UMUM',
                 style: TextStyle(
@@ -149,24 +224,20 @@ class _SettingsPageState extends State<SettingsPage> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        _selectedLanguage,
+                        languageProvider.languageName,
                         style: const TextStyle(
                           fontSize: 13,
                           color: Color(0xFF777777),
                         ),
                       ),
                       const SizedBox(width: 4),
-                      const Icon(Icons.chevron_right, color: Color(0xFFAAAAAA)),
+                      const Icon(
+                        Icons.chevron_right,
+                        color: Color(0xFFAAAAAA),
+                      ),
                     ],
                   ),
-                  onTap: () {
-                    setState(() {
-                      _selectedLanguage =
-                          _selectedLanguage == 'Bahasa Indonesia'
-                          ? 'English'
-                          : 'Bahasa Indonesia';
-                    });
-                  },
+                  onTap: _showLanguagePicker,
                 ),
               ),
             ],

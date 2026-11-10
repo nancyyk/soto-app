@@ -260,7 +260,10 @@ class _ProfilePageState extends State<ProfilePage> {
               _ProfileMenu(
                 icon: Icons.person_outline,
                 title: 'Edit Profile',
-                onTap: () => context.push(AppRouter.editProfile),
+                onTap: () async {
+                  await context.push(AppRouter.editProfile);
+                  if (mounted) _loadUser();
+                },
               ),
               _ProfileMenu(
                 icon: Icons.lock_outline,
