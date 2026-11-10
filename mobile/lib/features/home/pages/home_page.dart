@@ -51,7 +51,13 @@ class _HomePageState extends State<HomePage> {
         final data = results[0] as Map<String, dynamic>;
         final unreadCount = results[1] as int;
         final machines = results[2] as List<dynamic>;
-        final onlineCount = machines.where((m) => m is Map && (m['status_online'] == true || m['status_online'] == 1)).length;
+        final onlineCount = machines
+            .where(
+              (m) =>
+                  m is Map &&
+                  (m['status_online'] == true || m['status_online'] == 1),
+            )
+            .length;
 
         if (mounted) {
           setState(() {
@@ -62,13 +68,20 @@ class _HomePageState extends State<HomePage> {
             _onlineMachines = onlineCount;
             if (data['total_botol'] != null) {
               _totalBotol = (data['total_botol'] as num).toInt();
-            } else if (data['transactions'] != null && data['transactions']['data'] != null) {
+            } else if (data['transactions'] != null &&
+                data['transactions']['data'] != null) {
               final txs = data['transactions']['data'] as List;
-              _totalBotol = txs.fold(0, (sum, item) => sum + (item['jumlah_botol'] as int? ?? 0));
+              _totalBotol = txs.fold(
+                0,
+                (sum, item) => sum + (item['jumlah_botol'] as int? ?? 0),
+              );
             }
-            if (data['transactions'] != null && data['transactions']['data'] != null) {
+            if (data['transactions'] != null &&
+                data['transactions']['data'] != null) {
               final txs = data['transactions']['data'] as List;
-              _latestTransaction = txs.isNotEmpty ? Map<String, dynamic>.from(txs.first as Map) : null;
+              _latestTransaction = txs.isNotEmpty
+                  ? Map<String, dynamic>.from(txs.first as Map)
+                  : null;
             } else {
               _latestTransaction = null;
             }
@@ -89,15 +102,31 @@ class _HomePageState extends State<HomePage> {
     try {
       final dt = DateTime.parse(iso).toLocal();
       final now = DateTime.now();
-      final isToday = dt.year == now.year && dt.month == now.month && dt.day == now.day;
-      final isYesterday = dt.year == now.year && dt.month == now.month && dt.day == now.day - 1;
-      final timeStr = '${dt.hour.toString().padLeft(2, '0')}.${dt.minute.toString().padLeft(2, '0')} WIB';
+      final isToday =
+          dt.year == now.year && dt.month == now.month && dt.day == now.day;
+      final isYesterday =
+          dt.year == now.year && dt.month == now.month && dt.day == now.day - 1;
+      final timeStr =
+          '${dt.hour.toString().padLeft(2, '0')}.${dt.minute.toString().padLeft(2, '0')} WIB';
       if (isToday) {
         return 'Hari ini $timeStr';
       } else if (isYesterday) {
         return 'Kemarin $timeStr';
       } else {
-        final months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        final months = [
+          'Jan',
+          'Feb',
+          'Mar',
+          'Apr',
+          'Mei',
+          'Jun',
+          'Jul',
+          'Agu',
+          'Sep',
+          'Okt',
+          'Nov',
+          'Des',
+        ];
         return '${dt.day} ${months[dt.month - 1]} $timeStr';
       }
     } catch (_) {
@@ -135,7 +164,9 @@ class _HomePageState extends State<HomePage> {
               onRefresh: _loadData,
               color: HomePage.green,
               child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics(),
+                ),
                 padding: EdgeInsets.fromLTRB(
                   horizontalPadding,
                   34,
@@ -147,28 +178,24 @@ class _HomePageState extends State<HomePage> {
                   children: [
                     Row(
                       children: [
-                        ClipOval(
-                          child: Image.asset(
-                            'assets/images/profile.png',
-                            width: 46,
-                            height: 46,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                width: 46,
-                                height: 46,
-                                color: const Color(0xFFE8C39E),
-                                alignment: Alignment.center,
-                                child: const Icon(
-                                  Icons.person,
-                                  color: Colors.white,
-                                  size: 28,
-                                ),
-                              );
-                            },
+                        Container(
+                          width: 46,
+                          height: 46,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: const Color(0xFF2D6A4F),
+                              width: 2,
+                            ),
+                          ),
+                          child: const Center(
+                            child: Icon(
+                              Icons.person,
+                              size: 28,
+                              color: Color(0xFF2D6A4F),
+                            ),
                           ),
                         ),
-
                         const SizedBox(width: 11),
 
                         Expanded(
@@ -190,7 +217,10 @@ class _HomePageState extends State<HomePage> {
                                 'Level ${levelInfo.level} • ${levelInfo.title}',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 12, color: HomePage.textGrey),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: HomePage.textGrey,
+                                ),
                               ),
                             ],
                           ),
@@ -220,16 +250,27 @@ class _HomePageState extends State<HomePage> {
                                   top: 3,
                                   right: 3,
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                      vertical: 1,
+                                    ),
+                                    constraints: const BoxConstraints(
+                                      minWidth: 16,
+                                      minHeight: 16,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: const Color(0xFFE63946),
                                       borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: Colors.white, width: 1.5),
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 1.5,
+                                      ),
                                     ),
                                     alignment: Alignment.center,
                                     child: Text(
-                                      _unreadNotifCount > 9 ? '9+' : '$_unreadNotifCount',
+                                      _unreadNotifCount > 9
+                                          ? '9+'
+                                          : '$_unreadNotifCount',
                                       style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 9,
@@ -352,7 +393,9 @@ class _HomePageState extends State<HomePage> {
                               vertical: 10,
                             ),
                             decoration: BoxDecoration(
-                              border: Border.all(color: const Color(0xFFE1E1E1)),
+                              border: Border.all(
+                                color: const Color(0xFFE1E1E1),
+                              ),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Column(
@@ -360,7 +403,8 @@ class _HomePageState extends State<HomePage> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     const Text(
                                       'Progres level',
@@ -393,9 +437,10 @@ class _HomePageState extends State<HomePage> {
                                     value: levelInfo.progress,
                                     minHeight: 5,
                                     backgroundColor: const Color(0xFFE4E4E4),
-                                    valueColor: const AlwaysStoppedAnimation<Color>(
-                                      HomePage.green,
-                                    ),
+                                    valueColor:
+                                        const AlwaysStoppedAnimation<Color>(
+                                          HomePage.green,
+                                        ),
                                   ),
                                 ),
                               ],
@@ -500,7 +545,10 @@ class _HomePageState extends State<HomePage> {
                             _totalMachines > 0
                                 ? '$_totalMachines mesin tersedia ($_onlineMachines online)'
                                 : 'Belum ada mesin terdaftar',
-                            style: const TextStyle(fontSize: 12, color: HomePage.textGrey),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: HomePage.textGrey,
+                            ),
                           ),
                         ],
                       ),
@@ -540,10 +588,15 @@ class _HomePageState extends State<HomePage> {
                     _latestTransaction == null
                         ? Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 18,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFFF9F9F9),
-                              border: Border.all(color: const Color(0xFFEBEBEB)),
+                              border: Border.all(
+                                color: const Color(0xFFEBEBEB),
+                              ),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: const Column(
@@ -565,7 +618,10 @@ class _HomePageState extends State<HomePage> {
                                 SizedBox(height: 2),
                                 Text(
                                   'Tukarkan botol pertamamu di mesin SOTO!',
-                                  style: TextStyle(fontSize: 11, color: HomePage.textGrey),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: HomePage.textGrey,
+                                  ),
                                 ),
                               ],
                             ),
@@ -579,7 +635,9 @@ class _HomePageState extends State<HomePage> {
                               width: double.infinity,
                               padding: const EdgeInsets.all(13),
                               decoration: BoxDecoration(
-                                border: Border.all(color: const Color(0xFFE1E1E1)),
+                                border: Border.all(
+                                  color: const Color(0xFFE1E1E1),
+                                ),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Column(
@@ -600,10 +658,15 @@ class _HomePageState extends State<HomePage> {
                                       ),
                                       const SizedBox(width: 8),
                                       Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 7,
+                                          vertical: 2,
+                                        ),
                                         decoration: BoxDecoration(
                                           color: HomePage.lightGreen,
-                                          borderRadius: BorderRadius.circular(4),
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
                                         ),
                                         child: Text(
                                           '${_latestTransaction!['jumlah_botol'] ?? 0} Botol',
@@ -636,7 +699,8 @@ class _HomePageState extends State<HomePage> {
                                       const SizedBox(width: 8),
                                       Text(
                                         _formatTxDateTime(
-                                          _latestTransaction!['created_at']?.toString(),
+                                          _latestTransaction!['created_at']
+                                              ?.toString(),
                                         ),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
@@ -777,8 +841,14 @@ class _QuickMenu extends StatelessWidget {
                     top: -2,
                     right: -2,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 1,
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFE63946),
                         borderRadius: BorderRadius.circular(10),

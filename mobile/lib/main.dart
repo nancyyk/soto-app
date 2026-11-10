@@ -16,6 +16,7 @@ Future<void> main() async {
     ChangeNotifierProvider(
       create: (_) => LanguageProvider(),
       child: DevicePreview(
+        enabled: false,
         builder: (context) => const SotoApp(),
       ),
     ),

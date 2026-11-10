@@ -53,7 +53,7 @@ class AboutPage extends StatelessWidget {
               children: [
                 const SizedBox(height: 10),
 
-                // LOGO SOTO (Single Asset yang sudah berisi ikon, teks SOTO, & slogan)
+                // LOGO SOTO
                 Image.asset(
                   'assets/images/Group-1.png',
                   width: 220,
@@ -131,20 +131,19 @@ class _InfoRow extends StatelessWidget {
         border: Border.all(color: const Color(0xFFBDBDBD), width: 0.8),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(
-                color: Color(0xFF222222),
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF222222),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          if (value.isNotEmpty)
-            Flexible(
+
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerRight,
               child: Text(
                 value,
                 textAlign: TextAlign.right,
@@ -155,6 +154,7 @@ class _InfoRow extends StatelessWidget {
                 ),
               ),
             ),
+          ),
         ],
       ),
     );
