@@ -13,6 +13,7 @@ class Machine extends Model
         'longitude',
         'is_simulation',
         'status_online',
+        'last_seen_at',
         'kapasitas_terkini',
         'tegangan_baterai',
         'threshold_capacity',
@@ -25,10 +26,39 @@ class Machine extends Model
             'longitude' => 'float',
             'is_simulation' => 'boolean',
             'status_online' => 'boolean',
+            'last_seen_at' => 'datetime',
             'kapasitas_terkini' => 'integer',
             'tegangan_baterai' => 'decimal:2',
             'threshold_capacity' => 'integer',
         ];
+    }
+
+    /** Detik tanpa telemetri sebelum mesin dianggap mati (ESP32 kirim tiap ~5 detik). */
+    public const HEARTBEAT_TIMEOUT_SECONDS = 30;
+
+    /** Status online sebenarnya: flag tersimpan DAN masih mengirim heartbeat. */
+    public function isOnline(): bool
+    {
+        if (! $this->status_online) {
+            return false;
+        }
+        if ($this->is_simulation) {
+            return true; // node simulasi tidak punya heartbeat
+        }
+
+        return $this->last_seen_at !== null
+            && $this->last_seen_at->gte(now()->subSeconds(self::HEARTBEAT_TIMEOUT_SECONDS));
+    }
+
+    /** Mesin fisik yang berstatus online tetapi heartbeat-nya sudah basi. */
+    public function scopeStale($query)
+    {
+        return $query->where('status_online', true)
+            ->where('is_simulation', false)
+            ->where(function ($q) {
+                $q->whereNull('last_seen_at')
+                    ->orWhere('last_seen_at', '<', now()->subSeconds(self::HEARTBEAT_TIMEOUT_SECONDS));
+            });
     }
 
     public function transactions(): HasMany

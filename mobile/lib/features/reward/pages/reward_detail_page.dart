@@ -22,7 +22,6 @@ class RewardDetailPage extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            // HEADER
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 24, 20, 10),
               child: SizedBox(
@@ -57,8 +56,6 @@ class RewardDetailPage extends StatelessWidget {
                 ),
               ),
             ),
-
-            // CONTENT
             Expanded(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
@@ -66,7 +63,6 @@ class RewardDetailPage extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // REWARD IMAGE
                     Container(
                       width: double.infinity,
                       height: 220,
@@ -95,8 +91,6 @@ class RewardDetailPage extends StatelessWidget {
                     ),
 
                     const SizedBox(height: 22),
-
-                    // CATEGORY
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
@@ -117,8 +111,6 @@ class RewardDetailPage extends StatelessWidget {
                     ),
 
                     const SizedBox(height: 12),
-
-                    // TITLE
                     Text(
                       reward.title,
                       style: const TextStyle(
@@ -129,8 +121,6 @@ class RewardDetailPage extends StatelessWidget {
                     ),
 
                     const SizedBox(height: 12),
-
-                    // POINT
                     Text(
                       '${reward.points} Poin',
                       style: const TextStyle(
@@ -141,8 +131,6 @@ class RewardDetailPage extends StatelessWidget {
                     ),
 
                     const SizedBox(height: 24),
-
-                    // DESCRIPTION
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(18),
@@ -176,8 +164,6 @@ class RewardDetailPage extends StatelessWidget {
                     ),
 
                     const SizedBox(height: 16),
-
-                    // CARA PENUKARAN
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(18),
@@ -217,8 +203,6 @@ class RewardDetailPage extends StatelessWidget {
                     ),
 
                     const SizedBox(height: 24),
-
-                    // BUTTON
                     SizedBox(
                       width: double.infinity,
                       height: 54,
@@ -262,12 +246,9 @@ class RewardDetailPage extends StatelessWidget {
     );
   }
 }
-
-// ---------------------------------------------------------------------------
 // Internal StatefulWidget for the redeem dialog.
 // State (isSubmitting, inputError, inputController) is owned by the widget
-// and follows the proper State lifecycle — no closure-based state re-declaration.
-// ---------------------------------------------------------------------------
+// and Stateful dialog for redemption submission.
 class _RedeemDialog extends StatefulWidget {
   final RewardData reward;
   final BuildContext pageContext;

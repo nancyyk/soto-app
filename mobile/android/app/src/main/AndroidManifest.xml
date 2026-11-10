@@ -1,7 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- ✅ Permission untuk akses internet (wajib untuk Dio/HTTP request) -->
+    <!-- Internet permission -->
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Android 13+: izin menampilkan notifikasi -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:label="soto_app"

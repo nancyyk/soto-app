@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -13,7 +13,6 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   bool _pushNotifications = true;
-  bool _emailNotifications = false;
 
   void _showLanguagePicker() {
     final languageProvider = context.read<LanguageProvider>();
@@ -159,29 +158,6 @@ class _SettingsPageState extends State<SettingsPage> {
                       value: _pushNotifications,
                       onChanged: (val) {
                         setState(() => _pushNotifications = val);
-                      },
-                    ),
-                    const Divider(height: 1, color: Color(0xFFEDEDED)),
-                    SwitchListTile(
-                      activeTrackColor: const Color(0xFF2D6A4F),
-                      title: const Text(
-                        'Notifikasi Email',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF222222),
-                        ),
-                      ),
-                      subtitle: const Text(
-                        'Terima laporan bulanan via email',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF777777),
-                        ),
-                      ),
-                      value: _emailNotifications,
-                      onChanged: (val) {
-                        setState(() => _emailNotifications = val);
                       },
                     ),
                   ],

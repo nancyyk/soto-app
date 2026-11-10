@@ -121,17 +121,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           ),
                         ),
                         child: ClipOval(
-                          child: Image.asset(
-                            'assets/images/profile.png',
-                            width: 92,
-                            height: 92,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => const Icon(
-                              Icons.person,
-                              size: 48,
-                              color: Color(0xFF2D6A4F),
-                            ),
-                          ),
+                          child: Icon(Icons.person, size: 48, color: Color(0xFF2D6A4F)),
                         ),
                       ),
                     ),

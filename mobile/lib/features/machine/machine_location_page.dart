@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -12,7 +14,11 @@ class MachineLocationPage extends StatefulWidget {
   State<MachineLocationPage> createState() => _MachineLocationPageState();
 }
 
-class _MachineLocationPageState extends State<MachineLocationPage> {
+class _MachineLocationPageState extends State<MachineLocationPage>
+    with WidgetsBindingObserver {
+  /// Interval auto-refresh status mesin.
+  static const Duration _refreshInterval = Duration(seconds: 5);
+  Timer? _refreshTimer;
   static const Color green = Color(0xFF2D6A4F);
   static const Color lightGreen = Color(0xFFE7F8EF);
 
@@ -26,17 +32,43 @@ class _MachineLocationPageState extends State<MachineLocationPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _fetchMachines();
+    _startAutoRefresh();
+  }
+
+  void _startAutoRefresh() {
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer.periodic(
+      _refreshInterval,
+      (_) => _fetchMachines(silent: true),
+    );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _fetchMachines(silent: true);
+      _startAutoRefresh();
+    } else {
+      _refreshTimer?.cancel(); // hemat baterai saat app di background
+    }
   }
 
   @override
   void dispose() {
+    _refreshTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     _mapController.dispose();
     _listScrollController.dispose();
     super.dispose();
   }
 
-  Future<void> _fetchMachines() async {
+  bool _fetching = false;
+
+  Future<void> _fetchMachines({bool silent = false}) async {
+    if (_fetching) return;
+    _fetching = true;
     try {
       final dio = AuthService().dio;
       final response = await dio.get('/machines');
@@ -45,8 +77,8 @@ class _MachineLocationPageState extends State<MachineLocationPage> {
           _machines = response.data as List;
           _isLoading = false;
         });
-        // Auto-center to first machine with valid coords after load
-        if (_machines.isNotEmpty) {
+        // Auto-center hanya saat load pertama (bukan saat refresh otomatis)
+        if (!silent && _machines.isNotEmpty) {
           _tryAnimateToMachine(0, autoSelect: false);
         }
       }
@@ -55,6 +87,8 @@ class _MachineLocationPageState extends State<MachineLocationPage> {
       if (mounted) {
         setState(() => _isLoading = false);
       }
+    } finally {
+      _fetching = false;
     }
   }
 
@@ -100,11 +134,19 @@ class _MachineLocationPageState extends State<MachineLocationPage> {
         centerTitle: true,
         leading: IconButton(
           onPressed: () => context.pop(),
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black, size: 20),
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            color: Colors.black,
+            size: 20,
+          ),
         ),
         title: const Text(
           'Lokasi Mesin',
-          style: TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.w700),
+          style: TextStyle(
+            color: Colors.black,
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
       body: SafeArea(
@@ -119,56 +161,68 @@ class _MachineLocationPageState extends State<MachineLocationPage> {
                   width: double.infinity,
                   height: 295,
                   child: _isLoading
-                    ? const Center(child: CircularProgressIndicator(color: green))
-                    : FlutterMap(
-                        mapController: _mapController,
-                        options: MapOptions(
-                          initialCenter: _machines.isNotEmpty && _latLngOf(_machines.first) != null
-                              ? _latLngOf(_machines.first)!
-                              : const LatLng(-7.2575, 112.7521), // Default Surabaya
-                          initialZoom: 14.0,
-                        ),
-                        children: [
-                          TileLayer(
-                            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                            userAgentPackageName: 'com.soto.app',
+                      ? const Center(
+                          child: CircularProgressIndicator(color: green),
+                        )
+                      : FlutterMap(
+                          mapController: _mapController,
+                          options: MapOptions(
+                            initialCenter:
+                                _machines.isNotEmpty &&
+                                    _latLngOf(_machines.first) != null
+                                ? _latLngOf(_machines.first)!
+                                : const LatLng(
+                                    -7.2575,
+                                    112.7521,
+                                  ), // Default Surabaya
+                            initialZoom: 14.0,
                           ),
-                          MarkerLayer(
-                            markers: List.generate(_machines.length, (i) {
-                              final m = _machines[i];
-                              final pos = _latLngOf(m);
-                              if (pos == null) return null;
-                              final isSelected = _selectedIndex == i;
-                              return Marker(
-                                point: pos,
-                                width: isSelected ? 54 : 40,
-                                height: isSelected ? 54 : 40,
-                                child: GestureDetector(
-                                  onTap: () => _tryAnimateToMachine(i),
-                                  child: Stack(
-                                    alignment: Alignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.location_on,
-                                        color: isSelected ? green : Colors.red,
-                                        size: isSelected ? 54 : 40,
-                                        shadows: isSelected
-                                            ? [
-                                                Shadow(
-                                                  color: green.withValues(alpha: 0.4),
-                                                  blurRadius: 8,
-                                                )
-                                              ]
-                                            : null,
-                                      ),
-                                    ],
+                          children: [
+                            TileLayer(
+                              urlTemplate:
+                                  'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                              userAgentPackageName: 'com.soto.app',
+                            ),
+                            MarkerLayer(
+                              markers: List.generate(_machines.length, (i) {
+                                final m = _machines[i];
+                                final pos = _latLngOf(m);
+                                if (pos == null) return null;
+                                final isSelected = _selectedIndex == i;
+                                return Marker(
+                                  point: pos,
+                                  width: isSelected ? 54 : 40,
+                                  height: isSelected ? 54 : 40,
+                                  child: GestureDetector(
+                                    onTap: () => _tryAnimateToMachine(i),
+                                    child: Stack(
+                                      alignment: Alignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.location_on,
+                                          color: isSelected
+                                              ? green
+                                              : Colors.red,
+                                          size: isSelected ? 54 : 40,
+                                          shadows: isSelected
+                                              ? [
+                                                  Shadow(
+                                                    color: green.withValues(
+                                                      alpha: 0.4,
+                                                    ),
+                                                    blurRadius: 8,
+                                                  ),
+                                                ]
+                                              : null,
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                              );
-                            }).whereType<Marker>().toList(),
-                          ),
-                        ],
-                      ),
+                                );
+                              }).whereType<Marker>().toList(),
+                            ),
+                          ],
+                        ),
                 ),
               ),
             ),
@@ -179,46 +233,73 @@ class _MachineLocationPageState extends State<MachineLocationPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Daftar Mesin SOTO', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: Color(0xFF222222))),
-                  Text('${_machines.length} Mesin', style: const TextStyle(color: green, fontSize: 12, fontWeight: FontWeight.w600)),
+                  const Text(
+                    'Daftar Mesin SOTO',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                      color: Color(0xFF222222),
+                    ),
+                  ),
+                  Text(
+                    '${_machines.length} Mesin',
+                    style: const TextStyle(
+                      color: green,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ],
               ),
             ),
             const SizedBox(height: 16),
             Expanded(
               child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: green))
-                : _machines.isEmpty
-                  ? const Center(child: Text('Belum ada mesin terdaftar', style: TextStyle(color: Colors.grey)))
+                  ? const Center(child: CircularProgressIndicator(color: green))
+                  : _machines.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'Belum ada mesin terdaftar',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    )
                   : ListView.builder(
                       controller: _listScrollController,
                       padding: const EdgeInsets.symmetric(horizontal: 18),
                       itemCount: _machines.length,
                       itemBuilder: (context, index) {
                         final m = _machines[index];
-                        final isOnline = m['status_online'] == 1 || m['status_online'] == true;
+                        final isOnline =
+                            m['status_online'] == 1 ||
+                            m['status_online'] == true;
                         final isSelected = _selectedIndex == index;
                         final hasCoords = _latLngOf(m) != null;
                         return GestureDetector(
-                          onTap: hasCoords ? () => _tryAnimateToMachine(index) : null,
+                          onTap: hasCoords
+                              ? () => _tryAnimateToMachine(index)
+                              : null,
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 250),
                             margin: const EdgeInsets.only(bottom: 12),
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
                               border: Border.all(
-                                color: isSelected ? green : const Color(0xFFEEEEEE),
+                                color: isSelected
+                                    ? green
+                                    : const Color(0xFFEEEEEE),
                                 width: isSelected ? 2.0 : 1.0,
                               ),
                               borderRadius: BorderRadius.circular(16),
-                              color: isSelected ? lightGreen.withValues(alpha: 0.5) : Colors.white,
+                              color: isSelected
+                                  ? lightGreen.withValues(alpha: 0.5)
+                                  : Colors.white,
                               boxShadow: isSelected
                                   ? [
                                       BoxShadow(
                                         color: green.withValues(alpha: 0.12),
                                         blurRadius: 8,
                                         offset: const Offset(0, 2),
-                                      )
+                                      ),
                                     ]
                                   : null,
                             ),
@@ -228,78 +309,106 @@ class _MachineLocationPageState extends State<MachineLocationPage> {
                                   width: 48,
                                   height: 48,
                                   decoration: BoxDecoration(
-                                    color: isSelected ? lightGreen : const Color(0xFFF6F8F6),
+                                    color: isSelected
+                                        ? lightGreen
+                                        : const Color(0xFFF6F8F6),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
-                                  child: Icon(Icons.storefront, color: isSelected ? green : const Color(0xFF777777)),
+                                  child: Icon(
+                                    Icons.storefront,
+                                    color: isSelected
+                                        ? green
+                                        : const Color(0xFF777777),
+                                  ),
                                 ),
                                 const SizedBox(width: 14),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         m['nama_lokasi'] ?? 'Mesin SOTO',
                                         style: TextStyle(
                                           fontWeight: FontWeight.w700,
                                           fontSize: 14,
-                                          color: isSelected ? green : const Color(0xFF222222),
+                                          color: isSelected
+                                              ? green
+                                              : const Color(0xFF222222),
                                         ),
-                                       ),
+                                      ),
                                       const SizedBox(height: 6),
-                                      Builder(builder: (_) {
-                                        final current = (m['kapasitas_terkini'] as num?)?.toInt() ?? 0;
-                                        final threshold = (m['threshold_capacity'] as num?)?.toInt() ?? 100;
-                                        final maxVal = threshold > 0 ? threshold : 100;
-                                        final pct = (current / maxVal).clamp(0.0, 1.0);
-                                        final pctInt = (pct * 100).round();
-                                        final Color barColor = pct >= 0.9
-                                            ? Colors.red
-                                            : pct >= 0.6
-                                                ? Colors.orange
-                                                : green;
-                                        return Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Row(
-                                              children: [
-                                                Text(
-                                                  'Kapasitas: ',
-                                                  style: const TextStyle(color: Color(0xFF777777), fontSize: 11),
-                                                ),
-                                                Text(
-                                                  '$pctInt%',
-                                                  style: TextStyle(
-                                                    color: barColor,
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.w700,
+                                      Builder(
+                                        builder: (_) {
+                                          final current =
+                                              (m['kapasitas_terkini'] as num?)
+                                                  ?.toInt() ??
+                                              0;
+                                          final pct = (current / 100).clamp(
+                                            0.0,
+                                            1.0,
+                                          );
+                                          final pctInt = (pct * 100).round();
+
+                                          final Color barColor = pct >= 0.9
+                                              ? Colors.red
+                                              : pct >= 0.6
+                                              ? Colors.orange
+                                              : green;
+
+                                          return Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  const Text(
+                                                    'Kapasitas: ',
+                                                    style: TextStyle(
+                                                      color: Color(0xFF777777),
+                                                      fontSize: 11,
+                                                    ),
                                                   ),
-                                                ),
-                                                Text(
-                                                  ' ($current/$maxVal)',
-                                                  style: const TextStyle(color: Color(0xFFAAAAAA), fontSize: 10),
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 4),
-                                            ClipRRect(
-                                              borderRadius: BorderRadius.circular(4),
-                                              child: LinearProgressIndicator(
-                                                value: pct,
-                                                minHeight: 4,
-                                                backgroundColor: const Color(0xFFEEEEEE),
-                                                valueColor: AlwaysStoppedAnimation<Color>(barColor),
+                                                  Text(
+                                                    '$pctInt%',
+                                                    style: TextStyle(
+                                                      color: barColor,
+                                                      fontSize: 11,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
-                                            ),
-                                          ],
-                                        );
-                                      }),
+                                              const SizedBox(height: 4),
+                                              ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                                child: LinearProgressIndicator(
+                                                  value: pct,
+                                                  minHeight: 4,
+                                                  backgroundColor: const Color(
+                                                    0xFFEEEEEE,
+                                                  ),
+                                                  valueColor:
+                                                      AlwaysStoppedAnimation<
+                                                        Color
+                                                      >(barColor),
+                                                ),
+                                              ),
+                                            ],
+                                          );
+                                        },
+                                      ),
                                       if (!hasCoords)
                                         const Padding(
                                           padding: EdgeInsets.only(top: 2),
                                           child: Text(
                                             'Koordinat belum tersedia',
-                                            style: TextStyle(color: Colors.orange, fontSize: 10),
+                                            style: TextStyle(
+                                              color: Colors.orange,
+                                              fontSize: 10,
+                                            ),
                                           ),
                                         ),
                                     ],
@@ -309,9 +418,14 @@ class _MachineLocationPageState extends State<MachineLocationPage> {
                                   crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 4,
+                                      ),
                                       decoration: BoxDecoration(
-                                        color: isOnline ? const Color(0xFFE7F8EF) : Colors.red.shade50,
+                                        color: isOnline
+                                            ? const Color(0xFFE7F8EF)
+                                            : Colors.red.shade50,
                                         borderRadius: BorderRadius.circular(20),
                                       ),
                                       child: Text(
@@ -328,7 +442,9 @@ class _MachineLocationPageState extends State<MachineLocationPage> {
                                       Icon(
                                         Icons.my_location_rounded,
                                         size: 14,
-                                        color: isSelected ? green : const Color(0xFFBBBBBB),
+                                        color: isSelected
+                                            ? green
+                                            : const Color(0xFFBBBBBB),
                                       ),
                                     ],
                                   ],

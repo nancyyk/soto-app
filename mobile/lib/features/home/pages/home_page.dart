@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/router/app_router.dart';
 import '../../../core/widgets/bottom_nav_bar.dart';
+import '../../../core/services/push_notification_service.dart';
 import '../../auth/data/auth_service.dart';
 import '../data/home_service.dart';
 
@@ -26,12 +27,15 @@ class _HomePageState extends State<HomePage> {
   int _saldoPoin = 0;
   int _totalBotol = 0;
   int _unreadNotifCount = 0;
+  int _totalMachines = 0;
+  int _onlineMachines = 0;
   Map<String, dynamic>? _latestTransaction;
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    PushNotificationService.instance.registerToken();
     _loadData();
   }
 
@@ -42,15 +46,20 @@ class _HomePageState extends State<HomePage> {
         final results = await Future.wait([
           _homeService.getUserPoints(user['id']),
           _homeService.getUnreadNotificationCount(),
+          _homeService.getMachines(),
         ]);
         final data = results[0] as Map<String, dynamic>;
         final unreadCount = results[1] as int;
+        final machines = results[2] as List<dynamic>;
+        final onlineCount = machines.where((m) => m is Map && (m['status_online'] == true || m['status_online'] == 1)).length;
 
         if (mounted) {
           setState(() {
             _user = user;
             _saldoPoin = data['saldo_poin'] ?? 0;
             _unreadNotifCount = unreadCount;
+            _totalMachines = machines.length;
+            _onlineMachines = onlineCount;
             if (data['total_botol'] != null) {
               _totalBotol = (data['total_botol'] as num).toInt();
             } else if (data['transactions'] != null && data['transactions']['data'] != null) {
@@ -178,7 +187,7 @@ class _HomePageState extends State<HomePage> {
                               ),
                               const SizedBox(height: 3),
                               Text(
-                                'Level ${levelInfo.level} · ${levelInfo.title}',
+                                'Level ${levelInfo.level} • ${levelInfo.title}',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(fontSize: 12, color: HomePage.textGrey),
@@ -487,9 +496,11 @@ class _HomePageState extends State<HomePage> {
 
                           const SizedBox(height: 9),
 
-                          const Text(
-                            '2 mesin di dekat kamu',
-                            style: TextStyle(fontSize: 12, color: HomePage.textGrey),
+                          Text(
+                            _totalMachines > 0
+                                ? '$_totalMachines mesin tersedia ($_onlineMachines online)'
+                                : 'Belum ada mesin terdaftar',
+                            style: const TextStyle(fontSize: 12, color: HomePage.textGrey),
                           ),
                         ],
                       ),

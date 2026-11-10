@@ -48,11 +48,13 @@ class UserController extends Controller
 
         return response()->json([
             'user' => [
-                'id'    => $user->id,
-                'nama'  => $user->nama,
-                'email' => $user->email,
-                'no_hp' => $user->no_hp ?? null,
-                'role'  => $user->role,
+                'id'         => $user->id,
+                'nama'       => $user->nama,
+                'email'      => $user->email,
+                'no_hp'      => $user->no_hp ?? null,
+                'role'       => $user->role,
+                'rfid_uid'   => $user->rfid_uid ?? $user->cardsRfid()->where('status_aktif', true)->value('uid_rfid'),
+                'rfid_registered_at' => $user->rfid_registered_at,
                 'saldo_poin' => $user->saldo_poin ?? 0,
             ],
         ]);
@@ -75,11 +77,14 @@ class UserController extends Controller
         return response()->json([
             'message' => 'Profil berhasil diperbarui.',
             'user' => [
-                'id'    => $user->id,
-                'nama'  => $user->nama,
-                'email' => $user->email,
-                'no_hp' => $user->no_hp ?? null,
-                'role'  => $user->role,
+                'id'         => $user->id,
+                'nama'       => $user->nama,
+                'email'      => $user->email,
+                'no_hp'      => $user->no_hp ?? null,
+                'role'       => $user->role,
+                'rfid_uid'   => $user->rfid_uid ?? $user->cardsRfid()->where('status_aktif', true)->value('uid_rfid'),
+                'rfid_registered_at' => $user->rfid_registered_at,
+                'saldo_poin' => $user->saldo_poin ?? 0,
             ],
         ]);
     }

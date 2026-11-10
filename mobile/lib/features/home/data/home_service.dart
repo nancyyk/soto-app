@@ -26,4 +26,16 @@ class HomeService {
       return 0;
     }
   }
+
+  Future<List<dynamic>> getMachines() async {
+    try {
+      final response = await _dio.get('/machines');
+      if (response.statusCode == 200 && response.data is List) {
+        return response.data as List;
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
 }

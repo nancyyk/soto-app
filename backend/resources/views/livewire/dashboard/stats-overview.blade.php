@@ -31,7 +31,7 @@
             </svg>
         </div>
         <div>
-            <p class="text-2xl font-bold text-gray-900 ">{{ $nodeAktif }}<span class="text-base text-gray-400  font-normal">/5</span></p>
+            <p class="text-2xl font-bold text-gray-900 ">{{ $nodeAktif }}<span class="text-base text-gray-400  font-normal">/{{ $totalNodes }}</span></p>
             <p class="text-xs text-gray-500  mt-0.5">Node Online</p>
         </div>
     </div>

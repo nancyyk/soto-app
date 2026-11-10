@@ -21,7 +21,9 @@ class MachineController extends Controller
      */
     public function index(): JsonResponse
     {
-        return response()->json(Machine::all());
+        return response()->json(
+            Machine::all()->each(fn (Machine $m) => $m->status_online = $m->isOnline())
+        );
     }
 
     /**
@@ -32,6 +34,8 @@ class MachineController extends Controller
     public function show(Machine $machine): JsonResponse
     {
         $machine->load(['logCapacity' => fn ($q) => $q->where('created_at', '>=', now()->subHours(24))->latest()]);
+
+        $machine->status_online = $machine->isOnline();
 
         return response()->json($machine);
     }

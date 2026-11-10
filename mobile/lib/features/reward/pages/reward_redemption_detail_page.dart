@@ -27,7 +27,7 @@ class RewardRedemptionDetailPage extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            // TOP BAR
+
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
               child: Row(
@@ -73,7 +73,7 @@ class RewardRedemptionDetailPage extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // CARD STATUS HEADER
+
                     _buildStatusOverview(context, status),
 
                     const SizedBox(height: 20),
@@ -83,7 +83,6 @@ class RewardRedemptionDetailPage extends StatelessWidget {
 
                     const SizedBox(height: 20),
 
-                    // REWARD DETAILS CARD
                     _buildRewardCard(reward),
 
                     const SizedBox(height: 20),
@@ -93,7 +92,6 @@ class RewardRedemptionDetailPage extends StatelessWidget {
 
                     const SizedBox(height: 20),
 
-                    // TRANSACTION SUMMARY
                     _buildSummaryCard(),
                   ],
                 ),
@@ -372,7 +370,6 @@ class RewardRedemptionDetailPage extends StatelessWidget {
           ),
           const SizedBox(height: 12),
 
-          // EKSPEDISI & RESI
           if (hasTracking) ...[
             Container(
               padding: const EdgeInsets.all(12),
@@ -446,7 +443,6 @@ class RewardRedemptionDetailPage extends StatelessWidget {
             const SizedBox(height: 10),
           ],
 
-          // ALAMAT
           if (hasAddress)
             _InfoRow(
               icon: Icons.location_on_outlined,
@@ -523,7 +519,7 @@ class _TimelineTile extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // STEPPER LINE & ICON
+
           SizedBox(
             width: 32,
             child: Column(

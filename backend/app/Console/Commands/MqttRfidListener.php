@@ -52,12 +52,8 @@ class MqttRfidListener extends Command
      * Objek MqttClient — dibuat ulang saat reconnect.
      */
     private ?MqttClient $mqtt = null;
-
-    // =========================================================================
-    // ENTRY POINT
-    // =========================================================================
-
-    public function handle(): int
+// ENTRY POINT
+public function handle(): int
     {
         $this->printBanner();
 
@@ -86,12 +82,8 @@ class MqttRfidListener extends Command
         // Baris ini tidak akan pernah tercapai (loop tak terbatas)
         return self::SUCCESS;
     }
-
-    // =========================================================================
-    // MQTT CONNECTION
-    // =========================================================================
-
-    /**
+// MQTT CONNECTION
+/**
      * Buat instance MqttClient baru dengan konfigurasi dari mqtt.php.
      */
     private function createMqttClient(): MqttClient
@@ -166,12 +158,8 @@ class MqttRfidListener extends Command
         $this->mqtt->loop(true);
         $this->mqtt->disconnect();
     }
-
-    // =========================================================================
-    // MESSAGE HANDLERS
-    // =========================================================================
-
-    private function handleCheckMessage(string $topic, string $payload): void
+// MESSAGE HANDLERS
+private function handleCheckMessage(string $topic, string $payload): void
     {
         $this->line('');
         $this->line("📡 [CHECK MASUK] Topik: {$topic}");
@@ -203,7 +191,7 @@ class MqttRfidListener extends Command
     private function handleTransactionMessage(string $topic, string $payload): void
     {
         $this->line('');
-        $this->line("💰 [TRANSAKSI MASUK] Topik: {$topic}");
+        $this->line("[TRANSAKSI MASUK] Topik: {$topic}");
         
         $data = json_decode($payload, true);
         if (json_last_error() !== JSON_ERROR_NONE) return;
@@ -222,20 +210,11 @@ class MqttRfidListener extends Command
                 $user->saldo_poin += $poin;
                 $user->save();
 
-                // Cari machine_id, atau pakai machine pertama yang ada
-                $machine = Machine::first();
+                // Cari machine real (non-simulasi), fallback ke mesin pertama
+                $machine = Machine::where('is_simulation', false)->first() ?? Machine::first();
                 if (! $machine) {
-                    $machine = Machine::firstOrCreate(
-                        ['nama_lokasi' => 'SOTO Prototipe'],
-                        [
-                            'latitude'          => 0,
-                            'longitude'         => 0,
-                            'is_simulation'     => false,
-                            'status_online'     => true,
-                            'kapasitas_terkini' => 0,
-                            'threshold_capacity'=> 80,
-                        ]
-                    );
+                    $this->error("Tidak ada mesin yang terdaftar di database.");
+                    return;
                 }
 
                 // Simpan ke riwayat transaksi
@@ -262,7 +241,7 @@ class MqttRfidListener extends Command
                     ));
                 }
 
-                $this->info("✅ [TRANSAKSI SUKSES] User: {$user->nama} | Botol: {$botol} | Poin: {$poin} | Total Poin: {$user->saldo_poin}");
+                $this->info("[TRANSAKSI SUKSES] User: {$user->nama} | Botol: {$botol} | Poin: {$poin} | Total Poin: {$user->saldo_poin}");
                 Log::info('[MqttRfidListener] Transaksi berhasil disimpan', [
                     'user_id'    => $user->id,
                     'uid'        => $uid,
@@ -271,7 +250,7 @@ class MqttRfidListener extends Command
                     'machine_id' => $machine->id,
                 ]);
             } catch (\Throwable $e) {
-                $this->error("❌ [TRANSAKSI ERROR] " . $e->getMessage());
+                $this->error("[TRANSAKSI ERROR] " . $e->getMessage());
                 Log::error('[MqttRfidListener] Gagal menyimpan transaksi', [
                     'uid'   => $uid,
                     'botol' => $botol,
@@ -280,7 +259,7 @@ class MqttRfidListener extends Command
                 ]);
             }
         } else {
-            $this->warn("⚠ [TRANSAKSI GAGAL] UID {$uid} tidak ditemukan di database!");
+            $this->warn("[TRANSAKSI GAGAL] UID {$uid} tidak ditemukan di database!");
         }
     }
 
@@ -295,8 +274,8 @@ class MqttRfidListener extends Command
 
         if (empty($deviceId)) return;
 
-        // Anggap satu device saja (SOTO 1), langsung tembak machine pertama
-        $machine = Machine::first();
+        // Prioritaskan device real (non-simulasi), fallback ke mesin pertama
+        $machine = Machine::where('is_simulation', false)->first() ?? Machine::first();
         if (!$machine) return;
 
         $oldCapacity = (int) $machine->kapasitas_terkini;
@@ -305,6 +284,7 @@ class MqttRfidListener extends Command
         $machine->update([
             'kapasitas_terkini' => $kapasitas,
             'status_online'     => true,
+            'last_seen_at'      => now(),
             'tegangan_baterai'  => $tegangan,
         ]);
 
@@ -331,12 +311,8 @@ class MqttRfidListener extends Command
         
         $this->info("📈 [TELEMETRY] {$machine->nama_lokasi} : {$kapasitas}%");
     }
-
-    // =========================================================================
-    // MESSAGE HANDLER
-    // =========================================================================
-
-    /**
+// MESSAGE HANDLER
+/**
      * Proses pesan UID yang masuk dari ESP32.
      *
      * Payload yang diharapkan: {"device_id":"esp32-soto-01","uid":"43C210E2"}
@@ -349,13 +325,11 @@ class MqttRfidListener extends Command
         $receivedAt = now()->format('Y-m-d H:i:s');
 
         $this->line('');
-        $this->line('========================================');
-        $this->info("📶 PESAN MASUK [{$receivedAt}]");
+                $this->info("📶 PESAN MASUK [{$receivedAt}]");
         $this->line("Topik   : {$topic}");
         $this->line("Payload : {$payload}");
-        $this->line('========================================');
-
-        // --- Parse JSON ---
+        
+        // Parse payload JSON
         $data = json_decode($payload, true);
         if (json_last_error() !== JSON_ERROR_NONE) {
             $this->error('⚠ Payload bukan JSON valid — diabaikan');
@@ -382,7 +356,7 @@ class MqttRfidListener extends Command
         $this->line("Device  : {$deviceId}");
         $this->line("UID     : {$uid}");
 
-        // --- Proses penyimpanan ke database ---
+        // Simpan data transaksi ke database
         $this->processRfidUid($deviceId, $uid);
     }
 
@@ -444,6 +418,11 @@ class MqttRfidListener extends Command
         $user->rfid_registered_at = now();
         $user->save();
 
+        \App\Models\CardRfid::updateOrCreate(
+            ['user_id' => $user->id],
+            ['uid_rfid' => $uid, 'status_aktif' => true]
+        );
+
         // Langkah 4: Update status scan request
         $scanRequest->status   = 'completed';
         $scanRequest->rfid_uid = $uid;
@@ -452,8 +431,7 @@ class MqttRfidListener extends Command
         $userLabel  = $user->email ?? $user->nama ?? "ID:{$user->id}";
         $successMsg = "Pairing BERHASIL! UID={$uid} -> User #{$user->id} ({$userLabel})";
         $this->info($successMsg);
-        $this->line('========================================');
-
+        
         Log::info('[MqttRfidListener] Pairing RFID berhasil', [
             'uid'        => $uid,
             'user_id'    => $user->id,
@@ -461,12 +439,8 @@ class MqttRfidListener extends Command
             'request_id' => $scanRequest->id,
         ]);
     }
-
-    // =========================================================================
-    // DISPLAY HELPER
-    // =========================================================================
-
-    /**
+// DISPLAY HELPER
+/**
      * Tampilkan banner saat command pertama dijalankan.
      */
     private function printBanner(): void

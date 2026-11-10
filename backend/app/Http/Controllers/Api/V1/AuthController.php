@@ -47,8 +47,11 @@ class AuthController extends Controller
             'user' => [
                 'id' => $user->id,
                 'nama' => $user->nama,
+                'email' => $user->email,
                 'role' => $user->role,
                 'rfid_uid' => $user->rfid_uid,
+                'rfid_registered_at' => $user->rfid_registered_at,
+                'saldo_poin' => $user->saldo_poin ?? 0,
             ],
         ], 201);
     }
@@ -83,8 +86,11 @@ class AuthController extends Controller
             'user' => [
                 'id' => $user->id,
                 'nama' => $user->nama,
+                'email' => $user->email,
                 'role' => $user->role,
                 'rfid_uid' => $user->rfid_uid,
+                'rfid_registered_at' => $user->rfid_registered_at,
+                'saldo_poin' => $user->saldo_poin ?? 0,
             ],
         ]);
     }

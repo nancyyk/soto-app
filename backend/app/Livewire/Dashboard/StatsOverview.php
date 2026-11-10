@@ -15,6 +15,8 @@ class StatsOverview extends Component
 
     public int $nodeAktif = 0;
 
+    public int $totalNodes = 0;
+
     public int $nodeKritis = 0; // >= threshold
 
     public int $totalBotolAll = 0;
@@ -30,6 +32,7 @@ class StatsOverview extends Component
         $this->totalBotolHariIni = Transaction::whereDate('created_at', today())->sum('jumlah_botol');
         $this->totalPoinHariIni = Transaction::whereDate('created_at', today())->sum('poin_diperoleh');
         $this->nodeAktif = Machine::where('status_online', true)->count();
+        $this->totalNodes = Machine::count();
         $this->nodeKritis = Machine::aboveThreshold()->count();
         $this->totalBotolAll = Transaction::sum('jumlah_botol');
     }

@@ -27,13 +27,18 @@ class ProcessTransactionJob implements ShouldQueue
 
     public function handle(): void
     {
-        // Validate RFID card
-        $card = CardRfid::where('uid_rfid', $this->uidRfid)
-            ->where('status_aktif', true)
-            ->with('user')
-            ->first();
+        // Validate RFID card (check users.rfid_uid first, fallback to cards_rfid)
+        $user = \App\Models\User::where('rfid_uid', $this->uidRfid)->first();
 
-        if (! $card) {
+        if (! $user) {
+            $card = CardRfid::where('uid_rfid', $this->uidRfid)
+                ->where('status_aktif', true)
+                ->with('user')
+                ->first();
+            $user = $card?->user;
+        }
+
+        if (! $user) {
             Log::warning('ProcessTransactionJob: unknown or inactive RFID', ['uid' => $this->uidRfid]);
 
             return;
@@ -49,9 +54,9 @@ class ProcessTransactionJob implements ShouldQueue
         $pointsPerBottle = (int) Setting::get('poin_per_botol', config('soto.points_per_bottle', 10));
         $poinDiperoleh = $this->jumlahBotol * $pointsPerBottle;
 
-        $transaction = DB::transaction(function () use ($card, $poinDiperoleh) {
+        $transaction = DB::transaction(function () use ($user, $poinDiperoleh) {
             $trx = Transaction::create([
-                'user_id' => $card->user_id,
+                'user_id' => $user->id,
                 'machine_id' => $this->machineId,
                 'jumlah_botol' => $this->jumlahBotol,
                 'poin_diperoleh' => $poinDiperoleh,
@@ -59,19 +64,19 @@ class ProcessTransactionJob implements ShouldQueue
             ]);
 
             // Update denormalized saldo_poin
-            $card->user->increment('saldo_poin', $poinDiperoleh);
+            $user->increment('saldo_poin', $poinDiperoleh);
 
             return $trx;
         });
 
         // Deduplication check for PointsAddedNotification
-        $alreadyNotified = $card->user->notifications()
+        $alreadyNotified = $user->notifications()
             ->where('type', \App\Notifications\PointsAddedNotification::class)
             ->whereJsonContains('data->transaction_id', $transaction->id)
             ->exists();
 
         if (! $alreadyNotified) {
-            $card->user->notify(new \App\Notifications\PointsAddedNotification(
+            $user->notify(new \App\Notifications\PointsAddedNotification(
                 jumlahBotol: $this->jumlahBotol,
                 poinDiperoleh: $poinDiperoleh,
                 namaLokasi: $machine->nama_lokasi,
@@ -80,16 +85,16 @@ class ProcessTransactionJob implements ShouldQueue
         }
 
         event(new TransactionCreated(
-            userId: $card->user_id,
+            userId: $user->id,
             machineId: $this->machineId,
             jumlahBotol: $this->jumlahBotol,
             poinDiperoleh: $poinDiperoleh,
-            namaUser: $card->user->nama,
+            namaUser: $user->nama,
             namaLokasi: $machine->nama_lokasi,
         ));
 
         Log::info('Transaction processed', [
-            'user_id' => $card->user_id,
+            'user_id' => $user->id,
             'poin' => $poinDiperoleh,
         ]);
     }

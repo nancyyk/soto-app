@@ -62,18 +62,32 @@ class _RfidPageState extends State<RfidPage> {
         return;
       }
 
-      final status = await _rfidService.checkStatus();
+      final data = await _rfidService.checkStatusDetail();
       if (!mounted) return;
 
-      debugPrint('RFID poll status: $status');
+      final status = data['status']?.toString() ?? 'error';
+      final rfidUid = data['rfid_uid']?.toString();
+      debugPrint('RFID poll status: $status, uid: $rfidUid');
 
       if (status == 'completed') {
         timer.cancel();
         _timeoutTimer?.cancel();
+        if (rfidUid != null && rfidUid.isNotEmpty) {
+          await AuthService().updateLocalUser({'rfid_uid': rfidUid});
+        } else {
+          await AuthService().fetchProfile();
+        }
+        if (!mounted) return;
         setState(() => _currentState = RfidState.success);
 
         Future.delayed(const Duration(seconds: 2), () {
-          if (mounted) context.go('/home');
+          if (mounted) {
+            if (context.canPop()) {
+              context.pop(true);
+            } else {
+              context.go('/home');
+            }
+          }
         });
       } else if (status == 'expired' || status == 'failed') {
         timer.cancel();

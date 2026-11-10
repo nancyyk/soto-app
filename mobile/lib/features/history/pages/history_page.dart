@@ -39,7 +39,7 @@ class _HistoryPageState extends State<HistoryPage> {
           final parsed = txs.map((e) {
             final dateStr = e['created_at']?.toString() ?? '';
             return TransactionData(
-              id: 'TXN-0109${e['id']}', // Example prefix
+              id: 'TXN-#${e['id'].toString().padLeft(4, '0')}',
               date: _formatDate(dateStr),
               time: _formatTime(dateStr),
               machine: (e['machine'] != null && e['machine']['nama_lokasi'] != null) 

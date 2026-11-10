@@ -53,17 +53,19 @@ class PenggunaTable extends Component
         $this->email = $user->email;
         $this->password = '';
         $this->role = $user->role->value;
-        $this->uidRfid = $user->cardsRfid->first()?->uid_rfid ?? '';
+        $this->uidRfid = $user->rfid_uid ?? $user->cardsRfid->first()?->uid_rfid ?? '';
         $this->showModal = true;
     }
 
     public function save(): void
     {
+        $this->uidRfid = strtoupper(trim($this->uidRfid));
+
         $rules = [
             'nama' => 'required|string|max:150',
             'email' => 'required|email|max:150|unique:users,email'.($this->editingId ? ",{$this->editingId}" : ''),
             'role' => 'required|in:user,admin,petugas',
-            'uidRfid' => 'nullable|string|max:50|unique:cards_rfid,uid_rfid'.($this->editingId ? ",NULL,id,user_id,{$this->editingId}" : ''),
+            'uidRfid' => 'nullable|string|max:50|unique:users,rfid_uid'.($this->editingId ? ",{$this->editingId}" : ''),
         ];
         if (! $this->editingId) {
             $rules['password'] = 'required|min:8';
@@ -71,7 +73,13 @@ class PenggunaTable extends Component
 
         $this->validate($rules);
 
-        $data = ['nama' => $this->nama, 'email' => $this->email, 'role' => $this->role];
+        $data = [
+            'nama' => $this->nama,
+            'email' => $this->email,
+            'role' => $this->role,
+            'rfid_uid' => $this->uidRfid !== '' ? $this->uidRfid : null,
+            'rfid_registered_at' => $this->uidRfid !== '' ? now() : null,
+        ];
         if ($this->password) {
             $data['password'] = bcrypt($this->password);
         }
@@ -84,11 +92,13 @@ class PenggunaTable extends Component
         }
 
         // Sync RFID card
-        if ($this->uidRfid) {
+        if ($this->uidRfid !== '') {
             CardRfid::updateOrCreate(
                 ['user_id' => $user->id],
                 ['uid_rfid' => $this->uidRfid, 'status_aktif' => true]
             );
+        } else {
+            CardRfid::where('user_id', $user->id)->delete();
         }
 
         $this->showModal = false;

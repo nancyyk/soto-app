@@ -6,7 +6,7 @@ class RfidService {
 
   RfidService(this._dio);
 
-  /// POST /rfid/scan   ← perhatikan: TANPA /api/v1
+  /// POST /rfid/scan (tanpa prefix /api/v1)
   Future<void> startScan() async {
     try {
       final res = await _dio.post('/rfid/scan');
@@ -19,33 +19,42 @@ class RfidService {
     }
   }
 
-  /// GET /rfid/status   ← TANPA /api/v1
-  Future<String> checkStatus() async {
+  /// GET /rfid/status (tanpa prefix /api/v1) (mengembalikan map detail status & rfid_uid)
+  Future<Map<String, dynamic>> checkStatusDetail() async {
     try {
       final res = await _dio.get('/rfid/status');
-      final status = res.data['status'];
-      if (status is String) return status;
-      return 'error';
+      if (res.data is Map) {
+        return Map<String, dynamic>.from(res.data as Map);
+      }
+      return {'status': 'error'};
     } on DioException catch (e) {
       if (e.type == DioExceptionType.connectionTimeout ||
           e.type == DioExceptionType.receiveTimeout ||
           e.type == DioExceptionType.connectionError) {
         debugPrint('checkStatus network glitch: ${e.message}');
-        return 'error';
+        return {'status': 'error'};
       }
       if (e.response?.statusCode == 401) {
         debugPrint('checkStatus 401: token invalid');
-        return 'error';
+        return {'status': 'error'};
       }
       debugPrint('checkStatus ERROR: ${e.response?.statusCode} ${e.response?.data}');
-      return 'error';
+      return {'status': 'error'};
     } catch (e) {
       debugPrint('checkStatus unexpected: $e');
-      return 'error';
+      return {'status': 'error'};
     }
   }
 
-  /// DELETE /rfid/unlink   ← TANPA /api/v1
+  /// GET /rfid/status (tanpa prefix /api/v1)
+  Future<String> checkStatus() async {
+    final data = await checkStatusDetail();
+    final status = data['status'];
+    if (status is String) return status;
+    return 'error';
+  }
+
+  /// DELETE /rfid/unlink (tanpa prefix /api/v1)
   Future<void> unlink() async {
     try {
       await _dio.delete('/rfid/unlink');

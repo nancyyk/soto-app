@@ -46,6 +46,7 @@ class InternalTelemetryController extends Controller
             'kapasitas_terkini' => $validated['kapasitas'],
             'tegangan_baterai' => $validated['tegangan_baterai'],
             'status_online' => $validated['status_online'],
+            'last_seen_at' => now(),
         ]);
 
         \App\Services\NotificationService::checkAndNotifyMachineCapacityTransition($machine, $oldCapacity);

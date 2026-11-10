@@ -38,7 +38,7 @@ class TransactionDetailPage extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            // HEADER
+
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 14, 20, 10),
               child: Row(
@@ -68,14 +68,13 @@ class TransactionDetailPage extends StatelessWidget {
               ),
             ),
 
-            // CONTENT
             Expanded(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
                 child: Column(
                   children: [
-                    // SUCCESS ICON
+
                     Container(
                       width: 76,
                       height: 76,
@@ -92,7 +91,6 @@ class TransactionDetailPage extends StatelessWidget {
 
                     const SizedBox(height: 18),
 
-                    // POINT
                     Text(
                       '+${transaction.points} Poin',
                       style: const TextStyle(
@@ -125,7 +123,6 @@ class TransactionDetailPage extends StatelessWidget {
 
                     const SizedBox(height: 30),
 
-                    // DETAIL CARD
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(18),
@@ -179,7 +176,6 @@ class TransactionDetailPage extends StatelessWidget {
 
                     const SizedBox(height: 28),
 
-                    // BUTTON
                     SizedBox(
                       width: double.infinity,
                       height: 52,

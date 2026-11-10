@@ -22,6 +22,7 @@
                         <th class="table-th">Nama</th>
                         <th class="table-th">Email</th>
                         <th class="table-th">Role</th>
+                        <th class="table-th">Kartu RFID</th>
                         <th class="table-th text-right">Poin</th>
                         <th class="table-th text-right">Transaksi</th>
                         <th class="table-th">Aksi</th>
@@ -37,6 +38,13 @@
                                 {{ $user->role->label() }}
                             </span>
                         </td>
+                        <td class="table-td font-mono text-xs">
+                            @if($user->rfid_uid)
+                                <span class="badge-green">{{ $user->rfid_uid }}</span>
+                            @else
+                                <span class="text-gray-400">-</span>
+                            @endif
+                        </td>
                         <td class="table-td text-right font-semibold text-gray-900 ">{{ number_format($user->saldo_poin) }}</td>
                         <td class="table-td text-right text-gray-500 ">{{ $user->transactions_count }}</td>
                         <td class="table-td">
@@ -49,7 +57,7 @@
                         </td>
                     </tr>
                     @empty
-                    <tr><td colspan="6" class="table-td text-center text-gray-400  py-10">Tidak ada data.</td></tr>
+                    <tr><td colspan="7" class="table-td text-center text-gray-400  py-10">Tidak ada data.</td></tr>
                     @endforelse
                 </tbody>
             </table>

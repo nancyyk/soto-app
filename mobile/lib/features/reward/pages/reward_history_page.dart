@@ -69,7 +69,7 @@ class _RewardHistoryPageState extends State<RewardHistoryPage> {
       body: SafeArea(
         child: Column(
           children: [
-            // APP BAR
+
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
               child: Row(
@@ -133,7 +133,6 @@ class _RewardHistoryPageState extends State<RewardHistoryPage> {
               ),
             ),
 
-            // FILTER TABS
             Container(
               height: 40,
               margin: const EdgeInsets.symmetric(vertical: 8),

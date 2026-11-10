@@ -56,7 +56,7 @@ class RfidController extends Controller
             'expires_at' => $scanRequest->expires_at,
         ]);
 
-        // --- Publish MQTT command ke ESP32 ---
+        // Publish MQTT command ke ESP32
         $this->publishScanCommand($deviceId, $scanRequest->id);
 
         return response()->json([
@@ -134,6 +134,11 @@ class RfidController extends Controller
         $user->rfid_registered_at = now();
         $user->save();
 
+        \App\Models\CardRfid::updateOrCreate(
+            ['user_id' => $user->id],
+            ['uid_rfid' => $uid, 'status_aktif' => true]
+        );
+
         // Update status scan request
         $scanRequest->status   = 'completed';
         $scanRequest->rfid_uid = $uid;
@@ -155,21 +160,20 @@ class RfidController extends Controller
      */
     public function unlink(Request $request)
     {
+        /** @var User $user */
         $user = Auth::user();
         $user->rfid_uid           = null;
         $user->rfid_registered_at = null;
         $user->save();
 
+        \App\Models\CardRfid::where('user_id', $user->id)->delete();
+
         Log::info('[RFID] Kartu di-unlink', ['user_id' => $user->id]);
 
         return response()->json(['message' => 'Kartu berhasil dihapus dari akun']);
     }
-
-    // =========================================================================
-    // PRIVATE HELPER
-    // =========================================================================
-
-    /**
+// PRIVATE HELPER
+/**
      * Publish perintah scan ke ESP32 melalui HiveMQ Cloud.
      *
      * Topik  : soto/device/{device_id}/command

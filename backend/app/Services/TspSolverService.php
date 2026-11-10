@@ -185,14 +185,14 @@ class TspSolverService
             $nodes[] = ['lat' => (float) $machine->latitude, 'lng' => (float) $machine->longitude];
         }
 
-        // === Bangun Matriks Jarak via OSRM (fallback: Haversine) ===
+        // Matriks jarak via OSRM (fallback Haversine)
         ['matrix' => $matrix, 'source' => $distanceSource] = $this->osrm->buildDistanceMatrix($nodes, $this);
 
-        // === Solve TSP ===
+        // Selesaikan TSP
         $strategy = $this->selectStrategy(count($nodes));
         $result   = $strategy->solve($matrix, depotIndex: 0);
 
-        // === Ambil Polyline Jalan Aspal via OSRM Route API ===
+        // Polyline rute jalan dari OSRM
         // Susun urutan node yang dikunjungi (termasuk balik ke depot)
         $orderedNodes = array_map(
             fn ($idx) => $nodes[$idx],
@@ -200,7 +200,7 @@ class TspSolverService
         );
         $roadPolyline = $this->osrm->getRoutePolyline($orderedNodes);
 
-        // === Simpan Route ke DB ===
+        // Simpan rute ke database
         $route = Route::create([
             'total_distance_km' => $result->totalDistanceKm,
             'total_duration_min' => $result->totalDurationMin,

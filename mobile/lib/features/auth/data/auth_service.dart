@@ -4,6 +4,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/services/push_notification_service.dart';
+
 class AuthService {
   // Android Emulator : http://10.0.2.2:8000/api/v1
   // HP Fisik (LAN)   : http://192.168.x.x:8000/api/v1
@@ -27,7 +29,7 @@ class AuthService {
 
   final Dio _dio;
 
-  // ✅ Getter publik supaya service lain bisa reuse Dio ber-token
+  // Dio client dengan interceptor token auth
   Dio get dio => _dio;
 
   AuthService()
@@ -59,7 +61,7 @@ class AuthService {
     );
   }
 
-  // ---------- TOKEN ----------
+  // Token management
   Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_tokenKey);
@@ -81,7 +83,7 @@ class AuthService {
     return token != null && token.isNotEmpty;
   }
 
-  // ---------- USER ----------
+  // User cache
   Future<Map<String, dynamic>?> getUser() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_userKey);
@@ -98,7 +100,7 @@ class AuthService {
     await prefs.setString(_userKey, jsonEncode(user));
   }
 
-  // ---------- REGISTER ----------
+  // Register
   Future<Map<String, dynamic>> register({
     required String name,
     required String email,
@@ -126,7 +128,7 @@ class AuthService {
     }
   }
 
-  // ---------- LOGIN ----------
+  // Login
   Future<Map<String, dynamic>> login({
     required String email,
     required String password,
@@ -153,11 +155,12 @@ class AuthService {
     }
   }
 
-  // ---------- LOGOUT ----------
+  // Logout
   Future<void> logout() async {
     try {
       final token = await getToken();
       if (token == null || token.isEmpty) return;
+      await PushNotificationService.instance.unregisterToken();
       await _dio.post('/auth/logout');
     } catch (e) {
       debugPrint('Logout API error: $e');
@@ -166,14 +169,32 @@ class AuthService {
     }
   }
 
-  // ---------- UPDATE LOCAL USER ----------
+  // Update local user
   Future<void> updateLocalUser(Map<String, dynamic> updatedFields) async {
     final current = await getUser() ?? {};
     current.addAll(updatedFields);
     await saveUser(current);
   }
 
-  // ---------- UPDATE PROFILE ----------
+  // Fetch profile
+  Future<Map<String, dynamic>?> fetchProfile() async {
+    try {
+      final response = await _dio.get('/me');
+      if (response.statusCode == 200 && response.data is Map) {
+        final data = response.data as Map<String, dynamic>;
+        if (data['user'] is Map) {
+          final freshUser = Map<String, dynamic>.from(data['user'] as Map);
+          await updateLocalUser(freshUser);
+          return await getUser();
+        }
+      }
+    } catch (e) {
+      debugPrint('Fetch profile error: $e');
+    }
+    return await getUser();
+  }
+
+  // Update profile
   Future<Map<String, dynamic>> updateProfile({
     required String name,
   }) async {
@@ -195,7 +216,7 @@ class AuthService {
     }
   }
 
-  // ---------- CHANGE PASSWORD ----------
+  // Change password
   Future<void> changePassword({
     required String oldPassword,
     required String newPassword,
@@ -216,7 +237,7 @@ class AuthService {
     }
   }
 
-  // ---------- HELPER ----------
+  // Error parser helper
   String _parseError(DioException e) {
     if (e.type == DioExceptionType.connectionTimeout ||
         e.type == DioExceptionType.receiveTimeout ||
@@ -240,4 +261,4 @@ class AuthService {
     }
     return e.message ?? 'Terjadi kesalahan tidak diketahui.';
   }
-}
+}

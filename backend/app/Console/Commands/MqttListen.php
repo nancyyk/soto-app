@@ -9,19 +9,10 @@ use PhpMqtt\Client\MqttClient;
 
 class MqttListen extends Command
 {
-    /**
-     * Nama command artisan.
-     */
     protected $signature = 'mqtt:listen';
 
-    /**
-     * Deskripsi command.
-     */
     protected $description = 'Subscribe ke HiveMQ Cloud dan tampilkan data sensor ESP32';
 
-    /**
-     * Jalankan command.
-     */
     public function handle(): int
     {
         $host = config('mqtt.host');
@@ -32,15 +23,13 @@ class MqttListen extends Command
         $useTls = config('mqtt.tls');
 
         $this->info('');
-        $this->info('========================================');
-        $this->info('   SOTO MQTT LISTENER — Progress 1     ');
-        $this->info('========================================');
+        $this->info(' SOTO MQTT LISTENER — Progress 1 ');
         $this->info("Host      : {$host}:{$port}");
         $this->info("Client ID : {$clientId}");
         $this->info('TLS       : '.($useTls ? 'enabled' : 'disabled'));
         $this->info('');
 
-        // --- Build connection settings ---
+        // Build connection settings 
         $settings = (new ConnectionSettings)
             ->setUsername($username)
             ->setPassword($password)
@@ -55,11 +44,11 @@ class MqttListen extends Command
                 ->setTlsVerifyPeerName($tlsOpts['verify_peer_name'] ?? true);
         }
 
-        // --- Connect ---
+        // Connect 
         try {
             $this->info('Menghubungkan ke HiveMQ Cloud...');
             $mqtt = new MqttClient($host, $port, $clientId);
-            $mqtt->connect($settings, true); // clean session = true
+            $mqtt->connect($settings, true);
             $this->info('Terhubung ke HiveMQ Cloud');
             $this->info('');
         } catch (MqttClientException $e) {
@@ -68,7 +57,7 @@ class MqttListen extends Command
             return self::FAILURE;
         }
 
-        // --- Subscribe ---
+        // Subscribe 
         $topic = 'soto/test';
         $this->info("Subscribing ke topic: {$topic}");
         $this->info('Menunggu data dari ESP32...');
@@ -77,20 +66,17 @@ class MqttListen extends Command
 
         $mqtt->subscribe($topic, function (string $topic, string $payload) {
             $this->displayMessage($topic, $payload);
-        }, 0); // QoS 0
+        }, 0); 
 
-        // --- Loop ---
+        // Loop 
         $mqtt->loop(true);
 
-        // Jika loop berhenti
+        // when Loop stopping
         $mqtt->disconnect();
 
         return self::SUCCESS;
     }
 
-    /**
-     * Parse payload JSON dan tampilkan ke terminal.
-     */
     private function displayMessage(string $topic, string $payload): void
     {
         $receivedAt = now()->format('Y-m-d H:i:s');
@@ -115,7 +101,7 @@ class MqttListen extends Command
         $this->line("Topic       : {$topic}");
         $this->line("Device ID   : {$deviceId}");
 
-        // --- Ultrasonic ---
+        // Ultrasonic
         $this->line('');
         $this->line('ULTRASONIC');
         $ultrasonic = $data['ultrasonic'] ?? [];
@@ -127,7 +113,7 @@ class MqttListen extends Command
             $this->line(str_pad($label, 12).': '.$value);
         }
 
-        // --- Obstacle ---
+        // Obstacle 
         $this->line('');
         $this->line('OBSTACLE');
         $obstacle = $data['obstacle'] ?? [];
@@ -144,13 +130,13 @@ class MqttListen extends Command
             $this->line(str_pad($label, 12).': '.$status);
         }
 
-        // --- RFID ---
+        // RFID 
         $this->line('');
         $this->line('RFID');
         $uid = $data['rfid']['uid'] ?? 'N/A';
         $this->line(str_pad('UID', 12).': '.$uid);
 
-        // --- DFPlayer ---
+        // DFPlayer 
         $this->line('');
         $this->line('DFPLAYER');
         $dfplayer = $data['dfplayer'] ?? [];
@@ -159,7 +145,7 @@ class MqttListen extends Command
         $this->line(str_pad('Status', 12).': '.$dpStatus);
         $this->line(str_pad('Track', 12).': '.$track);
 
-        // --- Footer ---
+        // Footer 
         $this->line('');
         $this->line("Received    : {$receivedAt}");
         $this->line('========================================');

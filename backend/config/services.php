@@ -28,6 +28,11 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'fcm' => [
+        // Path ke service account JSON Firebase (relatif base_path atau absolut)
+        'credentials' => env('FCM_CREDENTIALS_PATH', 'storage/app/firebase-service-account.json'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

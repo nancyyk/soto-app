@@ -52,6 +52,7 @@ class _RewardPageState extends State<RewardPage> {
     'Voucher',
     'Pulsa',
     'E-Wallet',
+    'Merchandise',
   ];
 
   List<RewardData> get _filteredRewards {
