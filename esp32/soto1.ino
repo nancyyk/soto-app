@@ -1,7 +1,18 @@
 /*
  * ============================================================
- * SOTO — ESP32 #1 UTAMA (CONTROLLER) — VERSI UART + PARTIAL TFT
+ * SOTO — ESP32 #1 UTAMA (CONTROLLER) — v1.5
  * ============================================================
+ * Changelog v1.5:
+ *   - FIX: Layar "Kartu belum terdaftar" tampil 4 detik (tidak kedip)
+ *   - FIX: Layar "Pairing timeout" tampil 3 detik (tidak kedip)
+ *   - NEW: Timer layarInfoDeadline untuk semua layar info sementara
+ *   - FIX: Tampilan hasil transaksi bertahan 8 detik sebelum standby
+ *   - FIX: Audio "Silakan masukkan botol" (track 6) kembali via queue
+ *   - NEW: Audio queue non-blocking (scheduleAudio)
+ *   - NEW: Timer hasilTransaksiDeadline untuk STATE_SELESAI
+ *   - FIX: Buffer MQTT 1024 + socket timeout 15s
+ *   - NEW: Field tegangan (INA219) dari ESP32 #2
+ *
  * Integrasi:
  *   - RFID RC522        : SS=15, RST=22
  *   - TFT ILI9341       : CS=5  (via TFT_eSPI) — PARTIAL REFRESH
@@ -11,19 +22,9 @@
  *   - WiFi (STA)        : Untuk MQTT
  *   - MQTT HiveMQ Cloud : Publish via PubSubClient TLS
  *
- * FITUR:
- *   - Mode Pairing (Hubungkan Kartu) dengan countdown di TFT
- *   - Auto-return ke standby saat waktu habis
- *   - Layar sukses pairing
- *   - Buzzer "tit" saat kedua IR mendeteksi botol
- *   - Suara transaksi bersih (tanpa track 12)
- *
  * KABEL KE ESP32 #2:
  *   ESP32 #2 TX (GPIO17) ──[100Ω]──► ESP32 #1 RX2 (GPIO16)
  *   ESP32 #2 GND ──────────────────── ESP32 #1 GND   ← WAJIB!
- *
- * CATATAN TLS:
- *   Pakai wifiClient.setInsecure() — untuk development.
  * ============================================================
  */
 
@@ -74,13 +75,20 @@ const char* TOPIC_UID     = "soto/device/esp32-soto-01/uid";
 // STRUKTUR DATA SENSOR
 // ============================================================
 typedef struct {
-  int jarak1;
-  int jarak2;
-  int jarak3;
-  int jarak4;
-  int obstacle1;
-  int obstacle2;
+  int jarak1, jarak2, jarak3, jarak4;
+  int obstacle1, obstacle2;
+  float tegangan;
 } SensorData;
+
+// ============================================================
+// AUDIO QUEUE (NON-BLOCKING)
+// ============================================================
+#define MAX_PENDING_AUDIO 6
+struct PendingAudio {
+  int           track;
+  unsigned long at;   // 0 = slot kosong
+};
+PendingAudio audioQueue[MAX_PENDING_AUDIO];
 
 // ============================================================
 // OBJEK GLOBAL
@@ -98,16 +106,15 @@ PubSubClient        mqttClient(wifiClient);
 // ============================================================
 const int   POIN_PER_BOTOL    = 1;
 const float TINGGI_REFERENSI  = 27.0;
-const int   KAPASITAS_WARNING = 80;
 const unsigned long TIMEOUT_SENSOR_MS     = 5000;
 const unsigned long DEBOUNCE_RFID_MS      = 1500;
 const unsigned long INTERVAL_MQTT_MS      = 5000;
 const unsigned long TIMEOUT_TRANSAKSI_MS  = 300000UL;
 const unsigned long TIMEOUT_CHECK_RESULT  = 5000;
+const unsigned long TAMPIL_HASIL_MS       = 8000;   // hasil transaksi 8 detik
+const unsigned long TAMPIL_KARTU_INVALID_MS = 4000; // kartu belum terdaftar 4 detik
+const unsigned long TAMPIL_PAIRING_TIMEOUT_MS = 3000; // pairing timeout 3 detik
 
-// ============================================================
-// LAYOUT TFT (center-based)
-// ============================================================
 #define SCR_W 240
 #define SCR_H 320
 
@@ -145,15 +152,27 @@ unsigned long aktivitasTerakhir = 0;
 bool dfPlayerReady = false;
 String uartBuffer = "";
 
-// State untuk partial refresh
 int  lastKapasitasPersen = -1;
 bool lastSensorOnline    = false;
 int  lastJumlahBotol     = -1;
 int  lastTotalPoin       = -1;
 
-// State untuk pairing display
 int  lastPairingDetik    = -1;
 bool pairingScreenActive = false;
+
+unsigned long lastSensorWarn = 0;
+bool          lastSensorState = false;
+unsigned long lastSensorDataCount = 0;
+
+// Counter MQTT untuk log
+unsigned long mqttPublishOk   = 0;
+unsigned long mqttPublishFail = 0;
+
+// ▼▼▼ Timer tampilan hasil transaksi ▼▼▼
+unsigned long hasilTransaksiDeadline = 0;
+
+// ▼▼▼ Timer layar info sementara (kartu tidak terdaftar, pairing timeout) ▼▼▼
+unsigned long layarInfoDeadline = 0;
 
 // ============================================================
 // FORWARD DECLARATIONS
@@ -179,9 +198,12 @@ void hitungKapasitas();
 void cekWarningKapasitas();
 void fsmBotol();
 void playAudio(int nomor);
+void scheduleAudio(int track, unsigned long delayMs);
+void processPendingAudio();
 void buzzerTit();
 void buzzerInit();
-void publishMQTT();
+bool publishMQTT();
+bool publishCustom(const char* topic, const char* payload);
 void setupMqtt();
 void connectMqtt();
 void reconnectMqtt();
@@ -238,6 +260,7 @@ void bacaUartSensor() {
     char c = sensorSerial.read();
     if (c == '\n') {
       if (uartBuffer.length() > 0) {
+        Serial.println("[UART2] Raw: " + uartBuffer);
         parseSensorLine(uartBuffer);
         uartBuffer = "";
       }
@@ -249,19 +272,32 @@ void bacaUartSensor() {
 }
 
 void parseSensorLine(String line) {
-  if (!line.startsWith("D,")) return;
+  if (!line.startsWith("D,")) {
+    Serial.println("[UART2] ⚠ Format tidak dikenal: " + line);
+    return;
+  }
 
-  int idx = 2;
   int values[6];
-  int count = 0;
+  int idx = 2;
+  int valueCount = 0;
 
-  while (idx < line.length() && count < 6) {
+  while (idx < line.length() && valueCount < 6) {
     int comma = line.indexOf(',', idx);
     if (comma == -1) comma = line.length();
-    values[count++] = line.substring(idx, comma).toInt();
+    values[valueCount++] = line.substring(idx, comma).toInt();
     idx = comma + 1;
   }
-  if (count != 6) return;
+
+  // Field ke-7 adalah tegangan (float) — opsional
+  float tegangan = 0.0;
+  if (valueCount >= 6 && idx < line.length()) {
+    tegangan = line.substring(idx).toFloat();
+  }
+
+  if (valueCount < 6) {
+    Serial.println("[UART2] ⚠ Field kurang (" + String(valueCount) + "/6): " + line);
+    return;
+  }
 
   data.jarak1    = values[0];
   data.jarak2    = values[1];
@@ -269,14 +305,22 @@ void parseSensorLine(String line) {
   data.jarak4    = values[3];
   data.obstacle1 = values[4];
   data.obstacle2 = values[5];
+  data.tegangan  = tegangan;
 
   dataMasuk         = true;
   waktuDataTerakhir = millis();
+  lastSensorDataCount++;
 
   hitungKapasitas();
   cekWarningKapasitas();
 
-  if (stateMesin == STATE_STANDBY && !pairingScreenActive) {
+  Serial.printf("[SENSOR] #%lu J1=%d J2=%d J3=%d J4=%d | IR1=%d IR2=%d | Rata=%.1fcm Kap=%d%% | V=%.2f\n",
+                lastSensorDataCount,
+                data.jarak1, data.jarak2, data.jarak3, data.jarak4,
+                data.obstacle1, data.obstacle2,
+                jarakRataRata, kapasitasPersen, data.tegangan);
+
+  if (stateMesin == STATE_STANDBY && !pairingScreenActive && layarInfoDeadline == 0) {
     tftStandbyUpdate();
   } else if (stateMesin == STATE_TRANSAKSI) {
     tftTransaksiUpdate();
@@ -290,30 +334,29 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   String payloadStr = "";
   for (unsigned int i = 0; i < length; i++) payloadStr += (char)payload[i];
 
-  Serial.println("[MQTT] " + String(topic) + " → " + payloadStr);
+  Serial.println("[MQTT] RX [" + String(topic) + "] → " + payloadStr);
 
   JsonDocument doc;
-  if (deserializeJson(doc, payloadStr) != DeserializationError::Ok) return;
+  if (deserializeJson(doc, payloadStr) != DeserializationError::Ok) {
+    Serial.println("[MQTT] ⚠ Payload bukan JSON valid");
+    return;
+  }
 
   const char* action = doc["action"];
-  if (action) {
-    if (strcmp(action, "scan") == 0) {
-      if (stateMesin != STATE_STANDBY) {
-        Serial.println("[PAIRING] Diabaikan — mesin tidak standby");
-        return;
-      }
-
-      int expiresIn = doc["expires_in"] | 30;
-      scanningPairing = true;
-      scanDeadline    = millis() + ((unsigned long)expiresIn * 1000UL);
-      Serial.println("[MQTT] Pairing RFID aktif " + String(expiresIn) + "s");
-
-      tftPairingInit();
-      pairingScreenActive = true;
-      lastPairingDetik    = -1;
-      playAudio(17);
+  if (action && strcmp(action, "scan") == 0) {
+    if (stateMesin != STATE_STANDBY) {
+      Serial.println("[PAIRING] Diabaikan — mesin tidak standby");
       return;
     }
+    int expiresIn = doc["expires_in"] | 30;
+    scanningPairing = true;
+    scanDeadline    = millis() + ((unsigned long)expiresIn * 1000UL);
+    Serial.println("[MQTT] Pairing RFID aktif " + String(expiresIn) + "s");
+    tftPairingInit();
+    pairingScreenActive = true;
+    lastPairingDetik    = -1;
+    playAudio(17);
+    return;
   }
 
   if (String(topic).endsWith("/check_result")) {
@@ -333,21 +376,18 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 
       Serial.println("[RFID] Valid: " + uidAktif);
       playAudio(3);
-      delay(2500);
-      playAudio(6);
+      scheduleAudio(6, 2500);   // "Silakan masukkan botol"
 
       tftTransaksiInit();
       lastJumlahBotol = -1;
     } else {
       Serial.println("[RFID] Tidak terdaftar: " + uidAktif);
       uidAktif = "";
+      stateMesin = STATE_STANDBY;
       tftKartuTidakTerdaftarInit();
       playAudio(5);
-      delay(4000);
-      stateMesin = STATE_STANDBY;
-      tftStandbyInit();
-      lastKapasitasPersen = -1;
-      lastSensorOnline = false;
+      // ✅ Timer 4 detik — layar "belum terdaftar" tampil 4 detik
+      layarInfoDeadline = millis() + TAMPIL_KARTU_INVALID_MS;
     }
   }
 }
@@ -356,9 +396,35 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 // AUDIO
 // ============================================================
 void playAudio(int nomor) {
-  if (!dfPlayerReady) return;
-  Serial.println("[DFPlayer] Track " + String(nomor));
+  if (!dfPlayerReady) {
+    Serial.println("[DFPlayer] ⚠ Belum ready, skip track " + String(nomor));
+    return;
+  }
+  Serial.println("[DFPlayer] ▶ Track " + String(nomor));
   dfPlayer.playMp3Folder(nomor);
+}
+
+void scheduleAudio(int track, unsigned long delayMs) {
+  for (int i = 0; i < MAX_PENDING_AUDIO; i++) {
+    if (audioQueue[i].at == 0) {
+      audioQueue[i].track = track;
+      audioQueue[i].at    = millis() + delayMs;
+      Serial.printf("[AUDIO] ⏰ Track %d dijadwalkan +%lums\n", track, delayMs);
+      return;
+    }
+  }
+  Serial.printf("[AUDIO] ⚠ Queue penuh, drop track %d\n", track);
+}
+
+void processPendingAudio() {
+  unsigned long now = millis();
+  for (int i = 0; i < MAX_PENDING_AUDIO; i++) {
+    if (audioQueue[i].at != 0 && now >= audioQueue[i].at) {
+      int track = audioQueue[i].track;
+      audioQueue[i].at = 0;
+      playAudio(track);
+    }
+  }
 }
 
 // ============================================================
@@ -436,33 +502,22 @@ void fsmBotol() {
     case STAGE_0:
       if (ir1 && !ir2) bottleStage = STAGE_1;
       break;
-
     case STAGE_1:
-      if (ir1 && ir2) {
-        bottleStage = STAGE_2;
-        buzzerTit();
-      }
+      if (ir1 && ir2) { bottleStage = STAGE_2; buzzerTit(); }
       else if (!ir1 && !ir2) bottleStage = STAGE_0;
       break;
-
     case STAGE_2:
       if (!ir1 && ir2) bottleStage = STAGE_3;
       else if (!ir1 && !ir2) bottleStage = STAGE_0;
       break;
-
     case STAGE_3:
       if (!ir1 && !ir2) {
         bottleStage = STAGE_0;
         jumlahBotol++;
-
         transaksiMulai    = millis();
         aktivitasTerakhir = millis();
-
         Serial.println("[FSM] Botol masuk! Total: " + String(jumlahBotol));
         playAudio(7);
-        delay(1500);
-        playAudio(9);
-
         tftTransaksiUpdate();
       } else if (ir1 && !ir2) {
         bottleStage = STAGE_0;
@@ -477,6 +532,18 @@ void fsmBotol() {
 void prosesRFID(String uid) {
   Serial.println("[RFID] UID: " + uid);
 
+  // Saat STATE_SELESAI — abaikan scan sampai timer habis
+  if (stateMesin == STATE_SELESAI) {
+    Serial.println("[RFID] Diabaikan — masih menampilkan hasil transaksi");
+    return;
+  }
+
+  // Saat layar info aktif (kartu tidak terdaftar, pairing timeout) — abaikan
+  if (layarInfoDeadline > 0) {
+    Serial.println("[RFID] Diabaikan — masih menampilkan info");
+    return;
+  }
+
   if (scanningPairing) {
     if (millis() < scanDeadline) {
       JsonDocument doc;
@@ -484,8 +551,7 @@ void prosesRFID(String uid) {
       doc["uid"]       = uid;
       char buf[128];
       serializeJson(doc, buf);
-      mqttClient.publish(TOPIC_UID, buf, false);
-
+      publishCustom(TOPIC_UID, buf);
       Serial.println("[PAIRING] UID dikirim: " + uid);
       scanningPairing = false;
 
@@ -527,7 +593,7 @@ void prosesRFID(String uid) {
     serializeJson(doc, buf);
 
     String topicCheck = "soto/device/" + String(MQTT_CLIENT) + "/check";
-    mqttClient.publish(topicCheck.c_str(), buf, false);
+    publishCustom(topicCheck.c_str(), buf);
     return;
   }
 
@@ -537,72 +603,57 @@ void prosesRFID(String uid) {
 }
 
 // ============================================================
-// SELESAIKAN TRANSAKSI
+// SELESAIKAN TRANSAKSI — tampil 8 detik
 // ============================================================
 void selesaikanTransaksi() {
   totalPoin  = jumlahBotol * POIN_PER_BOTOL;
   stateMesin = STATE_SELESAI;
 
-  Serial.println("[TRANSAKSI] Selesai — " + String(jumlahBotol) + " botol");
+  Serial.println("[TRANSAKSI] Selesai — " + String(jumlahBotol) + " botol, " + String(totalPoin) + " poin");
 
   tftHasilTransaksiInit();
+
   playAudio(13);
-  delay(2500);
-  playAudio(14);
-  delay(5500);
+  scheduleAudio(14, 2500);
 
   kirimTransaksiKeAPI(uidAktif, jumlahBotol, totalPoin);
   publishMQTT();
 
-  delay(1000);
-
-  uidAktif    = "";
-  jumlahBotol = 0;
-  totalPoin   = 0;
-  stateMesin  = STATE_STANDBY;
-  tftStandbyInit();
-  lastKapasitasPersen = -1;
-  lastSensorOnline = false;
-  lastJumlahBotol = -1;
+  hasilTransaksiDeadline = millis() + TAMPIL_HASIL_MS;
 }
 
 // ============================================================
-// AUTO-COMMIT (timeout)
+// AUTO-COMMIT — tampil 8 detik
 // ============================================================
 void autoCommitTransaksi() {
   Serial.println("[TRANSAKSI] Timeout — auto-commit");
 
+  stateMesin = STATE_SELESAI;
+
   if (jumlahBotol > 0) {
     totalPoin = jumlahBotol * POIN_PER_BOTOL;
-    stateMesin = STATE_SELESAI;
 
     tftHasilTransaksiInit();
     playAudio(13);
-    delay(3000);
+    scheduleAudio(14, 2500);
 
     kirimTransaksiKeAPI(uidAktif, jumlahBotol, totalPoin);
     publishMQTT();
-    delay(2000);
+
+    hasilTransaksiDeadline = millis() + TAMPIL_HASIL_MS;
   } else {
     playAudio(15);
-    delay(2000);
+    tftStandbyInit();
+    lastKapasitasPersen = -1;
+    lastSensorOnline = false;
+    hasilTransaksiDeadline = millis() + 3000;
   }
-
-  uidAktif    = "";
-  jumlahBotol = 0;
-  totalPoin   = 0;
-  stateMesin  = STATE_STANDBY;
-  tftStandbyInit();
-  lastKapasitasPersen = -1;
-  lastSensorOnline = false;
 }
 
 // ============================================================
 // KIRIM KE LARAVEL
 // ============================================================
 void kirimTransaksiKeAPI(String uid, int botol, int poin) {
-  if (!mqttClient.connected()) return;
-
   JsonDocument doc;
   doc["device_id"]    = MQTT_CLIENT;
   doc["uid"]          = uid;
@@ -612,14 +663,38 @@ void kirimTransaksiKeAPI(String uid, int botol, int poin) {
   char buf[256];
   serializeJson(doc, buf);
   String topicTx = "soto/device/" + String(MQTT_CLIENT) + "/transaction";
-  mqttClient.publish(topicTx.c_str(), buf, false);
+  publishCustom(topicTx.c_str(), buf);
 }
 
 // ============================================================
-// PUBLISH MQTT
+// PUBLISH CUSTOM
 // ============================================================
-void publishMQTT() {
-  if (!mqttClient.connected()) return;
+bool publishCustom(const char* topic, const char* payload) {
+  if (!mqttClient.connected()) {
+    Serial.printf("[MQTT] ❌ Publish gagal (tidak connected) → %s\n", topic);
+    mqttPublishFail++;
+    return false;
+  }
+  bool ok = mqttClient.publish(topic, payload, false);
+  if (ok) {
+    mqttPublishOk++;
+    Serial.printf("[MQTT] ✅ TX [%s] %s\n", topic, payload);
+  } else {
+    mqttPublishFail++;
+    Serial.printf("[MQTT] ❌ TX GAGAL [%s] state=%d\n", topic, mqttClient.state());
+  }
+  return ok;
+}
+
+// ============================================================
+// PUBLISH MQTT SENSOR
+// ============================================================
+bool publishMQTT() {
+  if (!mqttClient.connected()) {
+    Serial.println("[MQTT] ❌ publishMQTT() dilewati — client tidak connected");
+    mqttPublishFail++;
+    return false;
+  }
 
   JsonDocument doc;
   doc["device_id"]        = MQTT_CLIENT;
@@ -634,37 +709,44 @@ void publishMQTT() {
   doc["jarak_us4"]        = data.jarak4;
   doc["obstacle1"]        = data.obstacle1;
   doc["obstacle2"]        = data.obstacle2;
+
+  if (data.tegangan > 0.1) {
+    doc["tegangan_baterai"] = data.tegangan;
+  }
+
   doc["status_transaksi"] = (stateMesin == STATE_TRANSAKSI) ? "aktif" :
-                            (stateMesin == STATE_WAIT_CHECK ? "wait_check" : "standby");
+                            (stateMesin == STATE_WAIT_CHECK ? "wait_check" :
+                            (stateMesin == STATE_SELESAI ? "selesai" : "standby"));
 
   char buf[512];
-  serializeJson(doc, buf);
-  mqttClient.publish(TOPIC_SENSOR, buf, false);
+  size_t len = serializeJson(doc, buf);
+
+  bool ok = mqttClient.publish(TOPIC_SENSOR, buf, false);
+  if (ok) {
+    mqttPublishOk++;
+    Serial.printf("[MQTT] ✅ SENSOR TX (%u B) kap=%d%% → %s\n",
+                  (unsigned)len, kapasitasPersen, TOPIC_SENSOR);
+  } else {
+    mqttPublishFail++;
+    Serial.printf("[MQTT] ❌ SENSOR TX GAGAL state=%d len=%u\n",
+                  mqttClient.state(), (unsigned)len);
+  }
+  return ok;
 }
 
 // ============================================================
+// TFT
 // ============================================================
-// TFT — TAMPILAN CENTER & RAPI
-// ============================================================
-// ============================================================
-
-// ---------- BOOT SCREEN ----------
 void tftBootScreen() {
-  digitalWrite(RFID_SS, HIGH);
-  digitalWrite(TFT_CS, LOW);
-
+  digitalWrite(RFID_SS, HIGH); digitalWrite(TFT_CS, LOW);
   tft.fillScreen(TFT_BLACK);
   printCentered("SOTO", 110, TFT_GREEN, 4);
   printCentered("Starting...", 160, TFT_WHITE, 2);
-
   digitalWrite(TFT_CS, HIGH);
 }
 
-// ---------- STANDBY: INIT ----------
 void tftStandbyInit() {
-  digitalWrite(RFID_SS, HIGH);
-  digitalWrite(TFT_CS, LOW);
-
+  digitalWrite(RFID_SS, HIGH); digitalWrite(TFT_CS, LOW);
   tft.fillScreen(TFT_BLACK);
   printCentered("SOTO", 15, TFT_GREEN, 3);
   printCentered("Smart Bottle Bank", 50, TFT_DARKGREY, 1);
@@ -675,64 +757,43 @@ void tftStandbyInit() {
   drawDivider(180);
   printCentered("Tap kartu RFID", 200, TFT_WHITE, 2);
   printCentered("untuk memulai", 230, TFT_WHITE, 2);
-  printCentered("v1.0", 295, TFT_DARKGREY, 1);
-
+  printCentered("v1.5", 295, TFT_DARKGREY, 1);
   digitalWrite(TFT_CS, HIGH);
-
   lastKapasitasPersen = -1;
   lastSensorOnline = false;
   tftStandbyUpdate();
 }
 
-// ---------- STANDBY: UPDATE (partial) ----------
 void tftStandbyUpdate() {
   bool sensorOnline = dataMasuk && (millis() - waktuDataTerakhir < TIMEOUT_SENSOR_MS);
-
   bool kapasitasBerubah = (kapasitasPersen != lastKapasitasPersen);
   bool sensorBerubah    = (sensorOnline != lastSensorOnline);
-
   if (!kapasitasBerubah && !sensorBerubah) return;
 
-  digitalWrite(RFID_SS, HIGH);
-  digitalWrite(TFT_CS, LOW);
+  digitalWrite(RFID_SS, HIGH); digitalWrite(TFT_CS, LOW);
 
   if (kapasitasBerubah) {
     lastKapasitasPersen = kapasitasPersen;
-
     tft.fillRect(0, 115, SCR_W, 24, TFT_BLACK);
-
     int blokIsi = kapasitasPersen / 10;
     String bar = "";
     for (int i = 0; i < 10; i++) bar += (i < blokIsi) ? "#" : "-";
     bar += " " + String(kapasitasPersen) + "%";
-
-    uint16_t color;
-    if (kapasitasPersen >= 100)      color = TFT_RED;
-    else if (kapasitasPersen >= 80)  color = TFT_ORANGE;
-    else                             color = TFT_CYAN;
-
+    uint16_t color = (kapasitasPersen >= 100) ? TFT_RED :
+                     (kapasitasPersen >= 80)  ? TFT_ORANGE : TFT_CYAN;
     printCentered(bar, 115, color, 2);
   }
-
   if (sensorBerubah) {
     lastSensorOnline = sensorOnline;
     tft.fillRect(0, 150, SCR_W, 24, TFT_BLACK);
-
-    if (sensorOnline) {
-      printCentered("SENSOR: OK", 150, TFT_GREEN, 2);
-    } else {
-      printCentered("SENSOR: OFFLINE", 150, TFT_RED, 2);
-    }
+    printCentered(sensorOnline ? "SENSOR: OK" : "SENSOR: OFFLINE", 150,
+                  sensorOnline ? TFT_GREEN : TFT_RED, 2);
   }
-
   digitalWrite(TFT_CS, HIGH);
 }
 
-// ---------- TRANSAKSI: INIT ----------
 void tftTransaksiInit() {
-  digitalWrite(RFID_SS, HIGH);
-  digitalWrite(TFT_CS, LOW);
-
+  digitalWrite(RFID_SS, HIGH); digitalWrite(TFT_CS, LOW);
   tft.fillScreen(TFT_BLACK);
   printCentered("SOTO", 15, TFT_GREEN, 3);
   printCentered("Transaksi Aktif", 50, TFT_DARKGREY, 1);
@@ -744,63 +805,45 @@ void tftTransaksiInit() {
   drawDivider(235);
   printCentered("Masukkan botol", 250, TFT_WHITE, 2);
   printCentered("Tap kartu utk selesai", 280, TFT_ORANGE, 1);
-
   digitalWrite(TFT_CS, HIGH);
-
   lastJumlahBotol = -1;
   lastKapasitasPersen = -1;
   tftTransaksiUpdate();
 }
 
-// ---------- TRANSAKSI: UPDATE (partial) ----------
 void tftTransaksiUpdate() {
   bool botolBerubah     = (jumlahBotol != lastJumlahBotol);
   bool kapasitasBerubah = (kapasitasPersen != lastKapasitasPersen);
-
   if (!botolBerubah && !kapasitasBerubah) return;
 
-  digitalWrite(RFID_SS, HIGH);
-  digitalWrite(TFT_CS, LOW);
+  digitalWrite(RFID_SS, HIGH); digitalWrite(TFT_CS, LOW);
 
   if (botolBerubah) {
     lastJumlahBotol = jumlahBotol;
     tft.fillRect(0, 115, SCR_W, 40, TFT_BLACK);
     printCentered(String(jumlahBotol), 115, TFT_CYAN, 4);
   }
-
   if (kapasitasBerubah) {
     lastKapasitasPersen = kapasitasPersen;
     tft.fillRect(0, 195, SCR_W, 32, TFT_BLACK);
-
-    uint16_t color;
-    if (kapasitasPersen >= 100)      color = TFT_RED;
-    else if (kapasitasPersen >= 80)  color = TFT_ORANGE;
-    else                             color = TFT_CYAN;
-
+    uint16_t color = (kapasitasPersen >= 100) ? TFT_RED :
+                     (kapasitasPersen >= 80)  ? TFT_ORANGE : TFT_CYAN;
     printCentered(String(kapasitasPersen) + "%", 195, color, 3);
   }
-
   digitalWrite(TFT_CS, HIGH);
 }
 
-// ---------- WAIT CHECK ----------
 void tftWaitCheckInit() {
-  digitalWrite(RFID_SS, HIGH);
-  digitalWrite(TFT_CS, LOW);
-
+  digitalWrite(RFID_SS, HIGH); digitalWrite(TFT_CS, LOW);
   tft.fillScreen(TFT_BLACK);
   printCentered("Memeriksa", 120, TFT_CYAN, 3);
   printCentered("Kartu...", 155, TFT_CYAN, 3);
   printCentered("Mohon Tunggu", 220, TFT_WHITE, 2);
-
   digitalWrite(TFT_CS, HIGH);
 }
 
-// ---------- KARTU TIDAK TERDAFTAR ----------
 void tftKartuTidakTerdaftarInit() {
-  digitalWrite(RFID_SS, HIGH);
-  digitalWrite(TFT_CS, LOW);
-
+  digitalWrite(RFID_SS, HIGH); digitalWrite(TFT_CS, LOW);
   tft.fillScreen(TFT_BLACK);
   printCentered("Kartu belum", 50, TFT_RED, 3);
   printCentered("terdaftar!", 90, TFT_RED, 3);
@@ -810,97 +853,66 @@ void tftKartuTidakTerdaftarInit() {
   drawDivider(240);
   printCentered("Buat akun &", 260, TFT_WHITE, 2);
   printCentered("hub. kartu kamu", 290, TFT_WHITE, 2);
-
   digitalWrite(TFT_CS, HIGH);
 }
 
-// ---------- PENUH ----------
 void tftPenuhInit() {
-  digitalWrite(RFID_SS, HIGH);
-  digitalWrite(TFT_CS, LOW);
-
+  digitalWrite(RFID_SS, HIGH); digitalWrite(TFT_CS, LOW);
   tft.fillScreen(TFT_RED);
   printCenteredOn("Tempat sampah", 90, TFT_WHITE, TFT_RED, 3);
   printCenteredOn("PENUH!", 130, TFT_WHITE, TFT_RED, 4);
   drawDivider(180, TFT_WHITE);
   printCenteredOn("Gunakan mesin", 210, TFT_WHITE, TFT_RED, 2);
   printCenteredOn("lainnya.", 240, TFT_WHITE, TFT_RED, 2);
-
   digitalWrite(TFT_CS, HIGH);
 }
 
-// ---------- HASIL TRANSAKSI ----------
 void tftHasilTransaksiInit() {
-  digitalWrite(RFID_SS, HIGH);
-  digitalWrite(TFT_CS, LOW);
-
+  digitalWrite(RFID_SS, HIGH); digitalWrite(TFT_CS, LOW);
   tft.fillScreen(TFT_BLACK);
   printCentered("Transaksi", 25, TFT_GREEN, 3);
   printCentered("Berhasil!", 60, TFT_GREEN, 3);
   drawDivider(105);
-
   printLabelValue("Botol", String(jumlahBotol), 130, TFT_YELLOW, TFT_CYAN, 2);
   printLabelValue("Poin", String(totalPoin), 170, TFT_YELLOW, TFT_CYAN, 2);
-
   drawDivider(210);
   printCentered("Terima kasih!", 235, TFT_WHITE, 2);
-
   digitalWrite(TFT_CS, HIGH);
 }
 
-// ---------- PAIRING / HUBUNGKAN KARTU ----------
 void tftPairingInit() {
-  digitalWrite(RFID_SS, HIGH);
-  digitalWrite(TFT_CS, LOW);
-
+  digitalWrite(RFID_SS, HIGH); digitalWrite(TFT_CS, LOW);
   tft.fillScreen(TFT_BLACK);
-
   printCentered("HUBUNGKAN", 30, TFT_CYAN, 3);
   printCentered("KARTU", 65, TFT_CYAN, 3);
-
   drawDivider(105);
-
   printCentered("Silakan tap", 130, TFT_WHITE, 2);
   printCentered("kartu Anda", 160, TFT_WHITE, 2);
   printCentered("di area sensor", 190, TFT_DARKGREY, 1);
-
   drawDivider(225);
-
   printCentered("Waktu: --s", 245, TFT_YELLOW, 3);
-
   digitalWrite(TFT_CS, HIGH);
-
   lastPairingDetik = -1;
   tftPairingUpdate();
 }
 
 void tftPairingUpdate() {
   if (!pairingScreenActive) return;
-
   long sisaMs = (long)scanDeadline - (long)millis();
   int  sisaDetik = (sisaMs > 0) ? (int)((sisaMs + 999) / 1000) : 0;
-
   if (sisaDetik == lastPairingDetik) return;
   lastPairingDetik = sisaDetik;
-
-  digitalWrite(RFID_SS, HIGH);
-  digitalWrite(TFT_CS, LOW);
-
+  digitalWrite(RFID_SS, HIGH); digitalWrite(TFT_CS, LOW);
   tft.fillRect(0, 245, SCR_W, 30, TFT_BLACK);
-
   String txt = "Waktu: " + String(sisaDetik) + "s";
   uint16_t color = (sisaDetik <= 5) ? TFT_RED : TFT_YELLOW;
   printCentered(txt, 245, color, 3);
-
   digitalWrite(TFT_CS, HIGH);
 }
 
 void tftPairingEnd(bool sukses) {
-  digitalWrite(RFID_SS, HIGH);
-  digitalWrite(TFT_CS, LOW);
-
+  digitalWrite(RFID_SS, HIGH); digitalWrite(TFT_CS, LOW);
   tft.fillScreen(TFT_BLACK);
-
   if (sukses) {
     printCentered("Kartu", 110, TFT_GREEN, 3);
     printCentered("terhubung!", 145, TFT_GREEN, 3);
@@ -912,7 +924,6 @@ void tftPairingEnd(bool sukses) {
     printCentered("Kembali ke", 210, TFT_WHITE, 2);
     printCentered("standby...", 240, TFT_WHITE, 2);
   }
-
   digitalWrite(TFT_CS, HIGH);
 }
 
@@ -950,7 +961,6 @@ void connectWifi() {
   Serial.print("[WiFi] Connecting to: " + String(WIFI_SSID));
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-
   int attempts = 0;
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -960,7 +970,7 @@ void connectWifi() {
       ESP.restart();
     }
   }
-  Serial.println("\n[WiFi] IP: " + WiFi.localIP().toString());
+  Serial.println("\n[WiFi] ✅ IP: " + WiFi.localIP().toString());
 }
 
 void setupMqtt() {
@@ -968,7 +978,8 @@ void setupMqtt() {
   mqttClient.setServer(MQTT_HOST, MQTT_PORT);
   mqttClient.setCallback(mqttCallback);
   mqttClient.setKeepAlive(60);
-  mqttClient.setBufferSize(512);
+  mqttClient.setBufferSize(1024);
+  mqttClient.setSocketTimeout(15);
   connectMqtt();
 }
 
@@ -977,12 +988,14 @@ void connectMqtt() {
   while (!mqttClient.connected()) {
     Serial.print("[MQTT] Connecting...");
     if (mqttClient.connect(MQTT_CLIENT, MQTT_USER, MQTT_PASS)) {
-      Serial.println(" OK!");
+      Serial.println(" ✅ OK!");
       mqttClient.subscribe(TOPIC_COMMAND, 1);
       String topicCheckRes = "soto/device/" + String(MQTT_CLIENT) + "/check_result";
       mqttClient.subscribe(topicCheckRes.c_str(), 1);
+      Serial.println("[MQTT] Subscribed ke command + check_result");
+      lastMqttPublish = millis() - INTERVAL_MQTT_MS;
     } else {
-      Serial.println(" Gagal rc=" + String(mqttClient.state()));
+      Serial.println(" ❌ Gagal rc=" + String(mqttClient.state()));
       if (++retries >= 5) return;
       delay(3000);
     }
@@ -990,7 +1003,10 @@ void connectMqtt() {
 }
 
 void reconnectMqtt() {
-  if (!mqttClient.connected()) connectMqtt();
+  if (!mqttClient.connected()) {
+    Serial.println("[MQTT] ⚠ Koneksi hilang, reconnect...");
+    connectMqtt();
+  }
 }
 
 // ============================================================
@@ -1001,7 +1017,7 @@ void setup() {
   delay(2000);
 
   Serial.println("\n==============================");
-  Serial.println(" ESP32 #1 - SOTO CONTROLLER");
+  Serial.println(" ESP32 #1 - SOTO CONTROLLER v1.5");
   Serial.println("==============================");
 
   pinMode(TFT_CS, OUTPUT);
@@ -1009,18 +1025,22 @@ void setup() {
   digitalWrite(TFT_CS, HIGH);
   digitalWrite(RFID_SS, HIGH);
 
+  // Init audio queue
+  for (int i = 0; i < MAX_PENDING_AUDIO; i++) {
+    audioQueue[i].track = 0;
+    audioQueue[i].at    = 0;
+  }
+
   connectWifi();
 
   SPI.begin(18, 19, 23);
 
-  // --- TFT ---
   Serial.println("[TFT] Init...");
   tft.init();
   tft.setRotation(2);
   tft.fillScreen(TFT_BLACK);
   tftBootScreen();
 
-  // --- RFID ---
   Serial.println("[RFID] Init...");
   digitalWrite(TFT_CS, HIGH);
   digitalWrite(RFID_SS, LOW);
@@ -1029,41 +1049,38 @@ void setup() {
   rfid.PCD_DumpVersionToSerial();
   digitalWrite(RFID_SS, HIGH);
 
-  // --- DFPlayer (UART1) ---
   Serial.println("[DFPlayer] Init (UART1)...");
   dfPlayerSerial.begin(9600, SERIAL_8N1, DFPLAYER_RX, DFPLAYER_TX);
   delay(1000);
   if (dfPlayer.begin(dfPlayerSerial)) {
     dfPlayerReady = true;
-    dfPlayer.volume(25);
+    dfPlayer.volume(15);
     dfPlayer.EQ(DFPLAYER_EQ_NORMAL);
-    Serial.println("[DFPlayer] OK");
+    Serial.println("[DFPlayer] ✅ OK");
   } else {
-    Serial.println("[DFPlayer] GAGAL");
+    Serial.println("[DFPlayer] ❌ GAGAL");
   }
 
-  // --- Buzzer ---
   Serial.println("[BUZZER] Init...");
   buzzerInit();
 
-  // --- Sensor UART (UART2) ---
   Serial.println("[SENSOR UART] Init (UART2)...");
+  Serial.println("  RX=16 TX=17 Baud=115200");
   sensorSerial.begin(SENSOR_BAUD, SERIAL_8N1, SENSOR_RX, SENSOR_TX);
 
-  // --- MQTT ---
+  Serial.println("[MQTT] Setup...");
   setupMqtt();
 
-  // --- Audio selamat datang ---
   delay(500);
   playAudio(1);
   delay(2500);
   playAudio(2);
 
-  // --- Tampilan standby ---
   tftStandbyInit();
 
   Serial.println("==============================");
   Serial.println("       SYSTEM READY");
+  Serial.println("   Menunggu data dari ESP32 #2");
   Serial.println("==============================");
 }
 
@@ -1074,9 +1091,12 @@ void loop() {
   if (!mqttClient.connected()) reconnectMqtt();
   mqttClient.loop();
 
+  // Proses audio queue
+  processPendingAudio();
+
   bacaUartSensor();
 
-  // -------- Handle pairing mode --------
+  // Handle pairing
   if (pairingScreenActive) {
     if (scanningPairing && millis() < scanDeadline) {
       tftPairingUpdate();
@@ -1086,29 +1106,62 @@ void loop() {
         scanningPairing = false;
         tftPairingEnd(false);
         playAudio(19);
-        delay(2000);
+        // ✅ Layar "waktu habis" tampil 3 detik
+        layarInfoDeadline = millis() + TAMPIL_PAIRING_TIMEOUT_MS;
+      } else {
+        tftStandbyInit();
+        lastKapasitasPersen = -1;
+        lastSensorOnline    = false;
       }
-      tftStandbyInit();
       pairingScreenActive = false;
-      lastKapasitasPersen = -1;
-      lastSensorOnline    = false;
     }
   }
 
-  // -------- Update status sensor di standby --------
-  static bool prevSensorOnline = false;
+  // ✅ Handle tampilan hasil transaksi — reset setelah 8 detik
+  if (stateMesin == STATE_SELESAI && hasilTransaksiDeadline > 0
+      && millis() >= hasilTransaksiDeadline) {
+    Serial.println("[TRANSAKSI] Tampilan hasil selesai — kembali ke standby");
+
+    hasilTransaksiDeadline = 0;
+    uidAktif    = "";
+    jumlahBotol = 0;
+    totalPoin   = 0;
+    stateMesin  = STATE_STANDBY;
+    tftStandbyInit();
+    lastKapasitasPersen = -1;
+    lastSensorOnline = false;
+    lastJumlahBotol = -1;
+    lastMqttPublish = millis();
+  }
+
+  // ✅ Handle layar info sementara (kartu tidak terdaftar, pairing timeout)
+  if (layarInfoDeadline > 0 && millis() >= layarInfoDeadline) {
+    Serial.println("[TFT] Layar info selesai — kembali ke standby");
+    layarInfoDeadline = 0;
+    if (stateMesin == STATE_STANDBY) {
+      tftStandbyInit();
+      lastKapasitasPersen = -1;
+      lastSensorOnline = false;
+    }
+  }
+
+  // Status sensor
   bool sensorOnline = dataMasuk && (millis() - waktuDataTerakhir < TIMEOUT_SENSOR_MS);
-  if (sensorOnline != prevSensorOnline) {
-    prevSensorOnline = sensorOnline;
-    if (stateMesin == STATE_STANDBY && !pairingScreenActive) tftStandbyUpdate();
+  if (sensorOnline != lastSensorState) {
+    lastSensorState = sensorOnline;
+    Serial.println(sensorOnline ? "[SENSOR] ✅ ONLINE" : "[SENSOR] ❌ OFFLINE");
+  }
+  if (!sensorOnline && millis() - lastSensorWarn > 5000) {
+    lastSensorWarn = millis();
+    Serial.printf("[SENSOR] ⚠ Tidak ada data >5s. Total: %lu paket\n",
+                  lastSensorDataCount);
   }
 
-  // -------- FSM botol saat transaksi --------
-  if (stateMesin == STATE_TRANSAKSI && dataMasuk) {
-    fsmBotol();
+  if (stateMesin == STATE_STANDBY && !pairingScreenActive && layarInfoDeadline == 0) {
+    tftStandbyUpdate();
   }
+  if (stateMesin == STATE_TRANSAKSI && dataMasuk) fsmBotol();
 
-  // -------- Timeout check_result --------
   if (stateMesin == STATE_WAIT_CHECK &&
       (millis() - waitCheckMulai > TIMEOUT_CHECK_RESULT)) {
     Serial.println("[MQTT] Timeout check_result");
@@ -1120,7 +1173,6 @@ void loop() {
     playAudio(16);
   }
 
-  // -------- Timeout transaksi --------
   if (stateMesin == STATE_TRANSAKSI &&
       (millis() - aktivitasTerakhir > TIMEOUT_TRANSAKSI_MS)) {
     autoCommitTransaksi();
@@ -1128,10 +1180,18 @@ void loop() {
 
   bacaRFID();
 
-  // -------- Publish MQTT periodik --------
+  // Publish MQTT periodik
   if (millis() - lastMqttPublish >= INTERVAL_MQTT_MS) {
     lastMqttPublish = millis();
     publishMQTT();
+  }
+
+  // Log counter publish tiap 30 detik
+  static unsigned long lastMqttStat = 0;
+  if (millis() - lastMqttStat > 30000) {
+    lastMqttStat = millis();
+    Serial.printf("[MQTT] 📊 Statistik: OK=%lu, FAIL=%lu, connected=%d\n",
+                  mqttPublishOk, mqttPublishFail, mqttClient.connected());
   }
 
   delay(10);

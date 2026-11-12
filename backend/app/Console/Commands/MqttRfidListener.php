@@ -15,49 +15,32 @@ use PhpMqtt\Client\Exceptions\MqttClientException;
 use PhpMqtt\Client\MqttClient;
 
 /**
- * MqttRfidListener
+ * MqttRfidListener — v2.0 FIXED
  *
- * Artisan command yang berjalan terus-menerus (long-running process) untuk
- * mendengarkan pesan UID kartu RFID dari ESP32 melalui HiveMQ Cloud.
- *
- * Alur kerja:
- *  1. ESP32 mendeteksi kartu RFID → publish UID ke soto/device/{id}/uid
- *  2. Command ini menerima pesan → validasi expiry & duplikat
- *  3. Simpan rfid_uid ke tabel users → update card_rfid status = completed
- *  4. Flutter polling /api/v1/rfid/status → detect completed → redirect /home
- *
- * Cara jalankan:
- *  Dev  : php artisan mqtt:listen-rfid
- *  Prod : gunakan Supervisor (lihat komentar di bawah)
+ * Perubahan penting dari versi sebelumnya:
+ *  - Callback dibungkus try-catch (tidak crash diam-diam)
+ *  - Log RAW IN sebelum parsing (tahu pesan masuk)
+ *  - handleSensorMessage() aman dari null tegangan_baterai
+ *  - broadcast() dibungkus try-catch (Reverb down tidak crash)
+ *  - QoS 0 untuk debugging (ganti ke 1 di production)
+ *  - Update DB dan notifikasi dipisah try-catch
  */
 class MqttRfidListener extends Command
 {
-    /**
-     * Nama command artisan.
-     */
     protected $signature = 'mqtt:listen-rfid';
-
-    /**
-     * Deskripsi singkat command.
-     */
     protected $description = 'Dengarkan UID RFID dari ESP32 via HiveMQ Cloud dan simpan ke database';
 
-    /**
-     * Topik yang di-subscribe. Wildcard "+" cocok dengan device_id apapun.
-     * Contoh: soto/device/esp32-soto-01/uid
-     */
     private const TOPIC_UID = 'soto/device/+/uid';
 
-    /**
-     * Objek MqttClient — dibuat ulang saat reconnect.
-     */
     private ?MqttClient $mqtt = null;
-// ENTRY POINT
-public function handle(): int
+
+    // ============================================================
+    // ENTRY POINT
+    // ============================================================
+    public function handle(): int
     {
         $this->printBanner();
 
-        // Loop reconnect — jika koneksi putus, coba sambung ulang setiap 5 detik
         while (true) {
             try {
                 $this->mqtt = $this->createMqttClient();
@@ -79,13 +62,12 @@ public function handle(): int
             sleep(5);
         }
 
-        // Baris ini tidak akan pernah tercapai (loop tak terbatas)
         return self::SUCCESS;
     }
-// MQTT CONNECTION
-/**
-     * Buat instance MqttClient baru dengan konfigurasi dari mqtt.php.
-     */
+
+    // ============================================================
+    // MQTT CONNECTION
+    // ============================================================
     private function createMqttClient(): MqttClient
     {
         $host     = config('mqtt.host');
@@ -97,11 +79,6 @@ public function handle(): int
         return new MqttClient($host, $port, $clientId);
     }
 
-    /**
-     * Bangun ConnectionSettings dan hubungkan ke HiveMQ Cloud.
-     *
-     * @throws MqttClientException jika koneksi gagal
-     */
     private function connectMqtt(): void
     {
         $username = config('mqtt.username');
@@ -123,7 +100,7 @@ public function handle(): int
         }
 
         $this->info('[MQTT] Menghubungkan ke HiveMQ Cloud...');
-        $this->mqtt->connect($settings, true); // clean session = true
+        $this->mqtt->connect($settings, true);
 
         $this->info('[MQTT] ✅ Terhubung ke HiveMQ Cloud');
         Log::info('[MqttRfidListener] Terhubung ke HiveMQ Cloud', [
@@ -133,48 +110,79 @@ public function handle(): int
         ]);
     }
 
+    // ============================================================
+    // SUBSCRIBE & LOOP — dengan try-catch + raw log
+    // ============================================================
     private function subscribeAndLoop(): void
     {
         $this->info('[MQTT] Subscribe ke topik UID, CHECK, TRANSACTION, dan SENSOR');
         $this->info('[MQTT] Menunggu data dari ESP32... (Ctrl+C untuk berhenti)');
         $this->line('');
 
-        $this->mqtt->subscribe('soto/device/+/uid', function (string $topic, string $payload) {
-            $this->handleUidMessage($topic, $payload);
-        }, 1);
+        $subs = [
+            'soto/device/+/uid'         => 'handleUidMessage',
+            'soto/device/+/check'       => 'handleCheckMessage',
+            'soto/device/+/transaction' => 'handleTransactionMessage',
+            'soto/sensor/+'             => 'handleSensorMessage',
+        ];
 
-        $this->mqtt->subscribe('soto/device/+/check', function (string $topic, string $payload) {
-            $this->handleCheckMessage($topic, $payload);
-        }, 1);
+        foreach ($subs as $topic => $handler) {
+            $this->mqtt->subscribe($topic, function (string $t, string $p) use ($handler) {
+                // ▼▼▼ LOG RAW SEBELUM PROCESSING — bukti pesan sampai ▼▼▼
+                $this->info("📥 [RAW IN] {$t} | " . substr($p, 0, 200));
 
-        $this->mqtt->subscribe('soto/device/+/transaction', function (string $topic, string $payload) {
-            $this->handleTransactionMessage($topic, $payload);
-        }, 1);
+                try {
+                    $this->$handler($t, $p);
+                } catch (\Throwable $e) {
+                    $this->error("❌ [CALLBACK ERROR] {$handler}: " . $e->getMessage());
+                    Log::error("[MqttRfidListener] Callback error", [
+                        'handler' => $handler,
+                        'topic'   => $t,
+                        'payload' => $p,
+                        'error'   => $e->getMessage(),
+                        'file'    => $e->getFile(),
+                        'line'    => $e->getLine(),
+                        'trace'   => $e->getTraceAsString(),
+                    ]);
+                }
+            }, 0); // QoS 0 untuk debugging — ubah ke 1 di production
+            $this->line("  ✓ Subscribed: {$topic} → {$handler}");
+        }
 
-        $this->mqtt->subscribe('soto/sensor/+', function (string $topic, string $payload) {
-            $this->handleSensorMessage($topic, $payload);
-        }, 1);
+        $this->line('');
+        $this->info('[MQTT] Loop blocking aktif — menunggu pesan...');
+        $this->line('');
 
         $this->mqtt->loop(true);
         $this->mqtt->disconnect();
     }
-// MESSAGE HANDLERS
-private function handleCheckMessage(string $topic, string $payload): void
+
+    // ============================================================
+    // MESSAGE HANDLERS
+    // ============================================================
+
+    private function handleCheckMessage(string $topic, string $payload): void
     {
         $this->line('');
         $this->line("📡 [CHECK MASUK] Topik: {$topic}");
-        
+
         $data = json_decode($payload, true);
-        if (json_last_error() !== JSON_ERROR_NONE) return;
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            $this->error("❌ [CHECK] JSON invalid");
+            return;
+        }
 
         $deviceId = trim($data['device_id'] ?? '');
         $uid      = strtoupper(trim($data['uid'] ?? ''));
 
-        if (empty($deviceId) || empty($uid)) return;
+        if (empty($deviceId) || empty($uid)) {
+            $this->error("❌ [CHECK] device_id atau uid kosong");
+            return;
+        }
 
-        $user = User::where('rfid_uid', $uid)->first();
+        $user    = User::where('rfid_uid', $uid)->first();
         $isValid = $user ? true : false;
-        
+
         $response = [
             'device_id' => $deviceId,
             'uid'       => $uid,
@@ -184,7 +192,7 @@ private function handleCheckMessage(string $topic, string $payload): void
 
         $topicOut = "soto/device/{$deviceId}/check_result";
         $this->mqtt->publish($topicOut, json_encode($response), 1);
-        
+
         $this->info("✅ [CHECK HASIL] UID {$uid} -> " . ($isValid ? "VALID ({$user->nama})" : "TIDAK TERDAFTAR") . " | Dikirim ke {$topicOut}");
     }
 
@@ -192,144 +200,179 @@ private function handleCheckMessage(string $topic, string $payload): void
     {
         $this->line('');
         $this->line("[TRANSAKSI MASUK] Topik: {$topic}");
-        
+
         $data = json_decode($payload, true);
-        if (json_last_error() !== JSON_ERROR_NONE) return;
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            $this->error("❌ [TRANSAKSI] JSON invalid");
+            return;
+        }
 
         $deviceId = trim($data['device_id'] ?? '');
         $uid      = strtoupper(trim($data['uid'] ?? ''));
         $botol    = (int)($data['jumlah_botol'] ?? 0);
         $poin     = (int)($data['total_poin'] ?? 0);
 
-        if (empty($deviceId) || empty($uid)) return;
+        if (empty($deviceId) || empty($uid)) {
+            $this->error("❌ [TRANSAKSI] device_id atau uid kosong");
+            return;
+        }
 
         $user = User::where('rfid_uid', $uid)->first();
-        if ($user) {
-            try {
-                // Update saldo poin user
-                $user->saldo_poin += $poin;
-                $user->save();
+        if (!$user) {
+            $this->warn("[TRANSAKSI GAGAL] UID {$uid} tidak ditemukan di database!");
+            return;
+        }
 
-                // Cari machine real (non-simulasi), fallback ke mesin pertama
-                $machine = Machine::where('is_simulation', false)->first() ?? Machine::first();
-                if (! $machine) {
-                    $this->error("Tidak ada mesin yang terdaftar di database.");
-                    return;
-                }
+        try {
+            $user->saldo_poin += $poin;
+            $user->save();
 
-                // Simpan ke riwayat transaksi
-                $transaction = \App\Models\Transaction::create([
-                    'user_id'        => $user->id,
-                    'machine_id'     => $machine->id,
-                    'jumlah_botol'   => $botol,
-                    'poin_diperoleh' => $poin,
-                    'created_at'     => now(),
-                ]);
+            $machine = Machine::where('is_simulation', false)->first() ?? Machine::first();
+            if (!$machine) {
+                $this->error("Tidak ada mesin yang terdaftar di database.");
+                return;
+            }
 
-                // Send points added notification (with deduplication check)
-                $alreadyNotified = $user->notifications()
-                    ->where('type', \App\Notifications\PointsAddedNotification::class)
-                    ->whereJsonContains('data->transaction_id', $transaction->id)
-                    ->exists();
+            $transaction = \App\Models\Transaction::create([
+                'user_id'        => $user->id,
+                'machine_id'     => $machine->id,
+                'jumlah_botol'   => $botol,
+                'poin_diperoleh' => $poin,
+                'created_at'     => now(),
+            ]);
 
-                if (! $alreadyNotified) {
+            $alreadyNotified = $user->notifications()
+                ->where('type', \App\Notifications\PointsAddedNotification::class)
+                ->whereJsonContains('data->transaction_id', $transaction->id)
+                ->exists();
+
+            if (!$alreadyNotified) {
+                try {
                     $user->notify(new \App\Notifications\PointsAddedNotification(
                         jumlahBotol: $botol,
                         poinDiperoleh: $poin,
                         namaLokasi: $machine->nama_lokasi,
                         transactionId: $transaction->id,
                     ));
+                } catch (\Throwable $e) {
+                    $this->warn("⚠ [TRANSAKSI] Notifikasi gagal: " . $e->getMessage());
                 }
-
-                $this->info("[TRANSAKSI SUKSES] User: {$user->nama} | Botol: {$botol} | Poin: {$poin} | Total Poin: {$user->saldo_poin}");
-                Log::info('[MqttRfidListener] Transaksi berhasil disimpan', [
-                    'user_id'    => $user->id,
-                    'uid'        => $uid,
-                    'botol'      => $botol,
-                    'poin'       => $poin,
-                    'machine_id' => $machine->id,
-                ]);
-            } catch (\Throwable $e) {
-                $this->error("[TRANSAKSI ERROR] " . $e->getMessage());
-                Log::error('[MqttRfidListener] Gagal menyimpan transaksi', [
-                    'uid'   => $uid,
-                    'botol' => $botol,
-                    'poin'  => $poin,
-                    'error' => $e->getMessage(),
-                ]);
             }
-        } else {
-            $this->warn("[TRANSAKSI GAGAL] UID {$uid} tidak ditemukan di database!");
+
+            $this->info("[TRANSAKSI SUKSES] User: {$user->nama} | Botol: {$botol} | Poin: {$poin} | Total Poin: {$user->saldo_poin}");
+            Log::info('[MqttRfidListener] Transaksi berhasil disimpan', [
+                'user_id'    => $user->id,
+                'uid'        => $uid,
+                'botol'      => $botol,
+                'poin'       => $poin,
+                'machine_id' => $machine->id,
+            ]);
+        } catch (\Throwable $e) {
+            $this->error("[TRANSAKSI ERROR] " . $e->getMessage());
+            Log::error('[MqttRfidListener] Gagal menyimpan transaksi', [
+                'uid'   => $uid,
+                'botol' => $botol,
+                'poin'  => $poin,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 
+    // ============================================================
+    // SENSOR HANDLER — versi aman dari null & broadcast crash
+    // ============================================================
     private function handleSensorMessage(string $topic, string $payload): void
     {
         $data = json_decode($payload, true);
-        if (json_last_error() !== JSON_ERROR_NONE) return;
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            $this->error("❌ [SENSOR] JSON invalid: {$payload}");
+            return;
+        }
 
-        $deviceId = trim($data['device_id'] ?? '');
+        $deviceId  = trim($data['device_id'] ?? '');
         $kapasitas = (int)($data['kapasitas'] ?? 0);
-        $tegangan = isset($data['tegangan_baterai']) ? (float)$data['tegangan_baterai'] : null;
+        $tegangan  = isset($data['tegangan_baterai']) && $data['tegangan_baterai'] !== null
+                        ? (float)$data['tegangan_baterai']
+                        : null;
 
-        if (empty($deviceId)) return;
+        $this->line("🔍 [SENSOR DEBUG] device={$deviceId}, kapasitas={$kapasitas}, tegangan=" . ($tegangan ?? 'null'));
 
-        // Prioritaskan device real (non-simulasi), fallback ke mesin pertama
+        if (empty($deviceId)) {
+            $this->error("❌ [SENSOR] device_id kosong");
+            return;
+        }
+
         $machine = Machine::where('is_simulation', false)->first() ?? Machine::first();
-        if (!$machine) return;
+        if (!$machine) {
+            $this->error("❌ [SENSOR] Tidak ada machine di DB");
+            return;
+        }
+
+        $this->line("🔍 [SENSOR DEBUG] machine=#{$machine->id} ({$machine->nama_lokasi}, sim={$machine->is_simulation})");
 
         $oldCapacity = (int) $machine->kapasitas_terkini;
 
-        // Update kapasitas terkini
-        $machine->update([
+        // ▼▼▼ UPDATE DB — null-handling aman ▼▼▼
+        $updateData = [
             'kapasitas_terkini' => $kapasitas,
             'status_online'     => true,
             'last_seen_at'      => now(),
-            'tegangan_baterai'  => $tegangan,
-        ]);
+        ];
+        if ($tegangan !== null) {
+            $updateData['tegangan_baterai'] = $tegangan;
+        }
 
-        \App\Services\NotificationService::checkAndNotifyMachineCapacityTransition($machine, $oldCapacity);
+        try {
+            $machine->update($updateData);
+            $this->info("💾 [SENSOR] DB updated: kapasitas={$kapasitas}%, status_online=true" . ($tegangan !== null ? ", tegangan={$tegangan}V" : ""));
+        } catch (\Throwable $e) {
+            $this->error("❌ [SENSOR] DB update gagal: " . $e->getMessage());
+            Log::error('[MqttRfidListener] Sensor DB update gagal', [
+                'error'    => $e->getMessage(),
+                'update'   => $updateData,
+                'machine'  => $machine->id,
+            ]);
+            return;
+        }
 
-        // Broadcast event ke admin dashboard (Reverb)
-        broadcast(new NodeTelemetryUpdated(
-            $machine->id,
-            $kapasitas,
-            true,
-            $tegangan,
-            $machine->nama_lokasi
-        ));
+        // ▼▼▼ NOTIFIKASI — dipisah agar tidak crash ▼▼▼
+        try {
+            \App\Services\NotificationService::checkAndNotifyMachineCapacityTransition($machine, $oldCapacity);
+        } catch (\Throwable $e) {
+            $this->warn("⚠ [SENSOR] Notification gagal: " . $e->getMessage());
+            Log::warning('[MqttRfidListener] Notification error', ['error' => $e->getMessage()]);
+        }
 
-        // Simpan log kapasitas jika perlu (opsional, misal tiap kelipatan 5%)
-        // Tapi sementara cukup broadcast agar realtime update.
-        // Uncomment ini jika butuh historis:
-        // LogCapacity::create([
-        //     'machine_id' => $machine->id,
-        //     'persen_kapasitas' => $kapasitas,
-        //     'tegangan_baterai' => $tegangan,
-        //     'created_at' => now(),
-        // ]);
-        
+        // ▼▼▼ BROADCAST — Reverb down tidak crash ▼▼▼
+        try {
+            broadcast(new NodeTelemetryUpdated(
+                $machine->id,
+                $kapasitas,
+                true,
+                $tegangan,
+                $machine->nama_lokasi
+            ));
+            $this->line("📡 [SENSOR] Broadcast terkirim");
+        } catch (\Throwable $e) {
+            $this->warn("⚠ [SENSOR] Broadcast gagal (Reverb down?): " . $e->getMessage());
+            Log::warning('[MqttRfidListener] Broadcast error', ['error' => $e->getMessage()]);
+        }
+
         $this->info("📈 [TELEMETRY] {$machine->nama_lokasi} : {$kapasitas}%");
     }
-// MESSAGE HANDLER
-/**
-     * Proses pesan UID yang masuk dari ESP32.
-     *
-     * Payload yang diharapkan: {"device_id":"esp32-soto-01","uid":"43C210E2"}
-     *
-     * @param  string $topic   Topik MQTT, misal: soto/device/esp32-soto-01/uid
-     * @param  string $payload JSON string dari ESP32
-     */
+
+    // ============================================================
+    // UID HANDLER (pairing)
+    // ============================================================
     private function handleUidMessage(string $topic, string $payload): void
     {
         $receivedAt = now()->format('Y-m-d H:i:s');
 
         $this->line('');
-                $this->info("📶 PESAN MASUK [{$receivedAt}]");
+        $this->info("📶 PESAN MASUK [{$receivedAt}]");
         $this->line("Topik   : {$topic}");
         $this->line("Payload : {$payload}");
-        
-        // Parse payload JSON
+
         $data = json_decode($payload, true);
         if (json_last_error() !== JSON_ERROR_NONE) {
             $this->error('⚠ Payload bukan JSON valid — diabaikan');
@@ -343,7 +386,6 @@ private function handleCheckMessage(string $topic, string $payload): void
         $deviceId = trim($data['device_id'] ?? '');
         $uid      = strtoupper(trim($data['uid'] ?? ''));
 
-        // Validasi field wajib ada
         if (empty($deviceId) || empty($uid)) {
             $this->error('⚠ Field device_id atau uid kosong — diabaikan');
             Log::warning('[MqttRfidListener] Field wajib kosong', [
@@ -356,25 +398,11 @@ private function handleCheckMessage(string $topic, string $payload): void
         $this->line("Device  : {$deviceId}");
         $this->line("UID     : {$uid}");
 
-        // Simpan data transaksi ke database
         $this->processRfidUid($deviceId, $uid);
     }
 
-    /**
-     * Validasi dan simpan UID RFID ke database.
-     *
-     * Langkah:
-     *  1. Cek apakah UID sudah dipakai user lain
-     *  2. Cari scan request pending yang masih valid (belum expired)
-     *  3. Simpan rfid_uid + rfid_registered_at ke tabel users
-     *  4. Update card_rfid: status = completed, rfid_uid = uid
-     *
-     * @param  string $deviceId  ID perangkat ESP32
-     * @param  string $uid       UID kartu RFID uppercase
-     */
     private function processRfidUid(string $deviceId, string $uid): void
     {
-        // Langkah 1: Cek duplikasi UID
         $isUsed = User::where('rfid_uid', $uid)->exists();
         if ($isUsed) {
             $this->warn("⚠ UID {$uid} sudah terdaftar ke akun lain — diabaikan");
@@ -385,14 +413,13 @@ private function handleCheckMessage(string $topic, string $payload): void
             return;
         }
 
-        // Langkah 2: Cari scan request pending yang belum expired
         $scanRequest = RfidScanRequest::where('device_id', $deviceId)
             ->where('status', 'pending')
             ->where('expires_at', '>', now())
-            ->orderBy('created_at', 'asc') // ambil yang paling lama (FIFO)
+            ->orderBy('created_at', 'asc')
             ->first();
 
-        if (! $scanRequest) {
+        if (!$scanRequest) {
             $this->warn("⚠ Tidak ada scan request aktif untuk device {$deviceId} — UID diabaikan");
             Log::info('[MqttRfidListener] Tidak ada scan request aktif', [
                 'uid'       => $uid,
@@ -403,9 +430,8 @@ private function handleCheckMessage(string $topic, string $payload): void
 
         $this->line("Request : #{$scanRequest->id} (user_id: {$scanRequest->user_id})");
 
-        // Langkah 3: Simpan RFID ke user
         $user = User::find($scanRequest->user_id);
-        if (! $user) {
+        if (!$user) {
             $this->error("⚠ User ID {$scanRequest->user_id} tidak ditemukan di database");
             Log::error('[MqttRfidListener] User tidak ditemukan', [
                 'user_id'    => $scanRequest->user_id,
@@ -414,35 +440,42 @@ private function handleCheckMessage(string $topic, string $payload): void
             return;
         }
 
-        $user->rfid_uid           = $uid;
-        $user->rfid_registered_at = now();
-        $user->save();
+        try {
+            $user->rfid_uid           = $uid;
+            $user->rfid_registered_at = now();
+            $user->save();
 
-        \App\Models\CardRfid::updateOrCreate(
-            ['user_id' => $user->id],
-            ['uid_rfid' => $uid, 'status_aktif' => true]
-        );
+            \App\Models\CardRfid::updateOrCreate(
+                ['user_id' => $user->id],
+                ['uid_rfid' => $uid, 'status_aktif' => true]
+            );
 
-        // Langkah 4: Update status scan request
-        $scanRequest->status   = 'completed';
-        $scanRequest->rfid_uid = $uid;
-        $scanRequest->save();
+            $scanRequest->status   = 'completed';
+            $scanRequest->rfid_uid = $uid;
+            $scanRequest->save();
 
-        $userLabel  = $user->email ?? $user->nama ?? "ID:{$user->id}";
-        $successMsg = "Pairing BERHASIL! UID={$uid} -> User #{$user->id} ({$userLabel})";
-        $this->info($successMsg);
-        
-        Log::info('[MqttRfidListener] Pairing RFID berhasil', [
-            'uid'        => $uid,
-            'user_id'    => $user->id,
-            'device_id'  => $deviceId,
-            'request_id' => $scanRequest->id,
-        ]);
+            $userLabel  = $user->email ?? $user->nama ?? "ID:{$user->id}";
+            $successMsg = "Pairing BERHASIL! UID={$uid} -> User #{$user->id} ({$userLabel})";
+            $this->info($successMsg);
+
+            Log::info('[MqttRfidListener] Pairing RFID berhasil', [
+                'uid'        => $uid,
+                'user_id'    => $user->id,
+                'device_id'  => $deviceId,
+                'request_id' => $scanRequest->id,
+            ]);
+        } catch (\Throwable $e) {
+            $this->error("❌ [PAIRING] Gagal simpan: " . $e->getMessage());
+            Log::error('[MqttRfidListener] Pairing gagal', [
+                'uid'   => $uid,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
-// DISPLAY HELPER
-/**
-     * Tampilkan banner saat command pertama dijalankan.
-     */
+
+    // ============================================================
+    // DISPLAY HELPER
+    // ============================================================
     private function printBanner(): void
     {
         $host     = config('mqtt.host');
@@ -452,7 +485,7 @@ private function handleCheckMessage(string $topic, string $payload): void
 
         $this->line('');
         $this->line('╔══════════════════════════════════════════╗');
-        $this->line('║      SOTO — MQTT RFID Listener           ║');
+        $this->line('║      SOTO — MQTT RFID Listener v2        ║');
         $this->line('║      mqtt:listen-rfid                    ║');
         $this->line('╚══════════════════════════════════════════╝');
         $this->line('');
