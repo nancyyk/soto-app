@@ -61,18 +61,16 @@ class RewardData {
           path = '/api/v1$path';
         }
 
-        // Sinkronisasi host sesuai platform (Web / HP Fisik / Emulator)
+        // Sinkronisasi host sesuai server yang aktif saat ini
         if (baseUri != null && baseUri.host.isNotEmpty) {
-          final shouldReplaceHost = uri.host == 'localhost' ||
-              uri.host == '127.0.0.1' ||
-              uri.host == '192.168.50.29' ||
-              (kIsWeb && uri.host != baseUri.host);
+          final shouldReplaceHost = uri.host != baseUri.host ||
+              uri.hasPort != baseUri.hasPort;
 
           if (shouldReplaceHost) {
             return uri.replace(
               scheme: baseUri.scheme,
               host: baseUri.host,
-              port: baseUri.hasPort ? baseUri.port : (uri.hasPort ? uri.port : null),
+              port: baseUri.hasPort ? baseUri.port : null,
               path: path,
             ).toString();
           }
