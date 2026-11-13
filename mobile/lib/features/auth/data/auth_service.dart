@@ -7,15 +7,27 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/services/push_notification_service.dart';
 
 class AuthService {
+  static const String azureBaseUrl = 'http://20.70.176.117/api/v1';
+  static const String localBaseUrl = 'http://192.168.30.98:8000/api/v1';
+
+  /// Menandai apakah server Azure VM sedang mengalami gangguan.
+  /// Jika true, baseUrl otomatis beralih ke server lokal.
+  static bool isAzureDown = false;
+
   // Android Emulator : http://10.0.2.2:8000/api/v1
   // HP Fisik (LAN)   : http://192.168.x.x:8000/api/v1
   static String get baseUrl {
-    if (kIsWeb) return 'http://20.70.176.117/api/v1';
+    // Jika server vm azure mengalami gangguan maka return local
+    if (isAzureDown) {
+      return localBaseUrl; // baris fallback: http://192.168.30.98:8000/api/v1
+    }
+
+    if (kIsWeb) return azureBaseUrl;
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
-      return 'http://20.70.176.117/api/v1';
+      return azureBaseUrl;
     }
     // IP Server Cloud Azure VM
-    return 'http://20.70.176.117/api/v1';
+    return azureBaseUrl;
   }
 
   /// Base URL server tanpa prefix /api/v1 (untuk asset storage seperti gambar)
@@ -23,20 +35,35 @@ class AuthService {
     return baseUrl.replaceAll(RegExp(r'/api/v1/?$'), '');
   }
 
+  /// Beralih secara manual ke server local
+  static void switchToLocal() {
+    isAzureDown = true;
+    _instance._dio.options.baseUrl = localBaseUrl;
+  }
+
+  /// Beralih secara manual kembali ke Azure VM
+  static void switchToAzure() {
+    isAzureDown = false;
+    _instance._dio.options.baseUrl = azureBaseUrl;
+  }
+
   static const String _tokenKey = 'auth_token';
   static const String _userKey = 'auth_user';
+
+  static final AuthService _instance = AuthService._internal();
+  factory AuthService() => _instance;
 
   final Dio _dio;
 
   // Dio client dengan interceptor token auth
   Dio get dio => _dio;
 
-  AuthService()
+  AuthService._internal()
       : _dio = Dio(
           BaseOptions(
             baseUrl: baseUrl,
-            connectTimeout: const Duration(seconds: 15),
-            receiveTimeout: const Duration(seconds: 15),
+            connectTimeout: const Duration(seconds: 7),
+            receiveTimeout: const Duration(seconds: 10),
             headers: {
               'Accept': 'application/json',
               'Content-Type': 'application/json',
@@ -46,14 +73,52 @@ class AuthService {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
+          // Sinkronkan baseUrl dengan status server aktif
+          if (options.baseUrl.isEmpty ||
+              options.baseUrl == azureBaseUrl ||
+              options.baseUrl == localBaseUrl) {
+            options.baseUrl = baseUrl;
+          }
           final token = await getToken();
           if (token != null && token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
           }
           handler.next(options);
         },
-        onError: (e, handler) {
+        onError: (e, handler) async {
           debugPrint('Dio Error: ${e.message}');
+
+          // Deteksi jika server Azure VM mengalami gangguan koneksi / 5xx
+          final isAzureTarget = e.requestOptions.baseUrl.contains('20.70.176.117') ||
+              e.requestOptions.uri.toString().contains('20.70.176.117');
+
+          final isDisrupted = e.type == DioExceptionType.connectionTimeout ||
+              e.type == DioExceptionType.sendTimeout ||
+              e.type == DioExceptionType.receiveTimeout ||
+              e.type == DioExceptionType.connectionError ||
+              (e.response?.statusCode != null && e.response!.statusCode! >= 502);
+
+          if (!isAzureDown && isAzureTarget && isDisrupted) {
+            debugPrint(
+              '[AuthService] Server VM Azure mengalami gangguan (${e.type.name} / ${e.response?.statusCode}). '
+              'Beralih otomatis ke server lokal: $localBaseUrl',
+            );
+            isAzureDown = true;
+            _dio.options.baseUrl = localBaseUrl;
+
+            // Retry request ke server lokal
+            try {
+              final requestOptions = e.requestOptions;
+              requestOptions.baseUrl = localBaseUrl;
+              final response = await _dio.fetch(requestOptions);
+              return handler.resolve(response);
+            } catch (retryError) {
+              if (retryError is DioException) {
+                return handler.next(retryError);
+              }
+            }
+          }
+
           handler.next(e);
         },
       ),
