@@ -88,6 +88,8 @@ class RewardController extends Controller
 
             DB::commit();
 
+            $redemption->load('reward');
+
             // 1. Dispatch Reward Success Notification to User
             $user->notify(new RewardSuccessNotification($redemption));
 

@@ -629,6 +629,15 @@ class RewardRedemptionDetailPage extends StatelessWidget {
             label: 'Waktu Transaksi',
             value: redemption.formattedDate,
           ),
+          if (redemption.effectiveVoucherCode != null) ...[
+            const SizedBox(height: 8),
+            _SummaryRow(
+              label: 'Kode Voucher',
+              value: redemption.effectiveVoucherCode!,
+              valueColor: green,
+              isBold: true,
+            ),
+          ],
           const SizedBox(height: 8),
           _SummaryRow(
             label: 'Total Poin Terpakai',

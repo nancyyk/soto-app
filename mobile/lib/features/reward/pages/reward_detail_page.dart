@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/router/app_router.dart';
 import '../data/reward_data.dart';
+import '../data/reward_redemption_data.dart';
 import '../data/reward_service.dart';
 import '../widgets/reward_image.dart';
 
@@ -335,7 +336,7 @@ class _RedeemDialogState extends State<_RedeemDialog> {
 
     try {
       final textVal = _inputController?.text.trim();
-      await RewardService().redeemReward(
+      final redemption = await RewardService().redeemReward(
         rewardId: widget.reward.id,
         shippingAddress: isMerchandise ? textVal : null,
         recipientNumber: (isEWallet || isPulsa) ? textVal : null,
@@ -345,19 +346,38 @@ class _RedeemDialogState extends State<_RedeemDialog> {
       // Close dialog first, then navigate away
       Navigator.of(context).pop();
 
+      final fullRedemption = RewardRedemptionData(
+        id: redemption.id,
+        userId: redemption.userId,
+        rewardId: widget.reward.id,
+        points: widget.reward.points,
+        status: redemption.status,
+        shippingAddress: redemption.shippingAddress,
+        recipientNumber: redemption.recipientNumber,
+        expedition: redemption.expedition,
+        trackingNumber: redemption.trackingNumber,
+        voucherCode: redemption.voucherCode,
+        createdAt: redemption.createdAt ?? DateTime.now(),
+        updatedAt: redemption.updatedAt ?? DateTime.now(),
+        reward: redemption.reward ?? widget.reward,
+      );
+
       final pageCtx = widget.pageContext;
       if (pageCtx.mounted) {
         ScaffoldMessenger.of(pageCtx).showSnackBar(
           SnackBar(
-            content: const Text('Reward berhasil ditukar! Cek status penukaran.'),
-            duration: const Duration(seconds: 4),
+            content: const Text('Reward berhasil ditukar!'),
+            duration: const Duration(seconds: 5),
+            backgroundColor: const Color(0xFF2D6A4F),
+            behavior: SnackBarBehavior.floating,
             action: SnackBarAction(
               label: 'Lihat Status',
-              textColor: Colors.white,
+              textColor: Colors.amberAccent,
               onPressed: () {
-                if (pageCtx.mounted) {
-                  GoRouter.of(pageCtx).push(AppRouter.rewardHistory);
-                }
+                AppRouter.router.push(
+                  AppRouter.rewardRedemptionDetail,
+                  extra: fullRedemption,
+                );
               },
             ),
           ),

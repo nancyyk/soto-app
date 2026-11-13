@@ -32,4 +32,18 @@ class RewardRedemption extends Model
     {
         return $this->belongsTo(Reward::class);
     }
+
+    public function getKodeVoucherAttribute($value)
+    {
+        if (!empty($value)) {
+            return $value;
+        }
+
+        if ($this->relationLoaded('reward') && $this->reward && $this->reward->kategori === 'Voucher') {
+            $prefix = !empty($this->reward->kode) ? $this->reward->kode : 'VCR';
+            return 'SOTO-' . strtoupper($prefix) . '-' . str_pad($this->id, 4, '0', STR_PAD_LEFT);
+        }
+
+        return $value;
+    }
 }

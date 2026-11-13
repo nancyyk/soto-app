@@ -33,6 +33,46 @@ class AdminNotificationDropdown extends Component
         }
     }
 
+    public function getNotificationUrl(array $data): string
+    {
+        $type = $data['type'] ?? '';
+
+        if ($type === 'reward_redeemed' || isset($data['redemption_id']) || isset($data['reward_id'])) {
+            return route('reward.index');
+        }
+
+        if ($type === 'machine_full' || isset($data['machine_id'])) {
+            $machineId = $data['machine_id'] ?? null;
+            if ($machineId) {
+                return route('monitoring.show', $machineId);
+            }
+            return route('monitoring.index');
+        }
+
+        if ($type === 'transaction' || isset($data['transaction_id'])) {
+            return route('transaksi.index');
+        }
+
+        return route('dashboard');
+    }
+
+    public function openNotification(string $notificationId)
+    {
+        $user = Auth::user();
+        if (! $user) {
+            return redirect()->route('login');
+        }
+
+        $notification = $user->notifications()->find($notificationId);
+        if ($notification) {
+            $notification->markAsRead();
+            $url = $this->getNotificationUrl($notification->data ?? []);
+            return redirect()->to($url);
+        }
+
+        return redirect()->route('dashboard');
+    }
+
     public function render()
     {
         $user = Auth::user();

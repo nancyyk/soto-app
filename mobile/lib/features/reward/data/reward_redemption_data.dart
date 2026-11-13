@@ -62,14 +62,22 @@ class RewardRedemptionData {
     );
   }
 
-  /// Mendapatkan kode voucher belanja (jika kategori Voucher)
+  /// Mendapatkan kode voucher belanja (jika kategori Voucher atau jika kode_voucher ada)
   String? get effectiveVoucherCode {
     if (voucherCode != null && voucherCode!.trim().isNotEmpty) {
       return voucherCode!.trim();
     }
-    if (reward?.category.toLowerCase() == 'voucher') {
-      final codePrefix = reward?.code.isNotEmpty == true ? reward!.code : 'VCR';
-      return 'SOTO-$codePrefix-${id.toString().padLeft(4, '0')}';
+
+    final cat = (reward?.category ?? '').trim().toLowerCase();
+    final name = (reward?.title ?? '').trim().toLowerCase();
+    final isVoucher = cat == 'voucher' || name.contains('voucher');
+
+    if (isVoucher) {
+      final codePrefix = (reward != null && reward!.code.trim().isNotEmpty)
+          ? reward!.code.trim().toUpperCase()
+          : 'VCR';
+      final formattedId = id > 0 ? id.toString().padLeft(4, '0') : '0001';
+      return 'SOTO-$codePrefix-$formattedId';
     }
     return null;
   }

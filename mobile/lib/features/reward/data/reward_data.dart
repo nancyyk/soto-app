@@ -1,8 +1,8 @@
-import 'package:flutter/foundation.dart';
 import '../../auth/data/auth_service.dart';
 
 class RewardData {
   final int id;
+  final String code;
   final String title;
   final String description;
   final int points;
@@ -12,6 +12,7 @@ class RewardData {
 
   const RewardData({
     required this.id,
+    this.code = '',
     required this.title,
     required this.description,
     required this.points,
@@ -25,6 +26,7 @@ class RewardData {
 
     return RewardData(
       id: json['id'] as int,
+      code: (json['kode'] ?? json['code'] ?? '').toString(),
       title: json['nama'] ?? 'Reward',
       description: json['deskripsi'] ?? '',
       points: json['poin'] ?? 0,

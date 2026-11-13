@@ -41,9 +41,13 @@
                     $isUnread = is_null($notif->read_at);
                     $isWarning = $data['warning'] ?? false;
                 @endphp
-                <div class="p-4 sm:p-5 transition-colors border-l-2 {{ $isUnread ? 'border-l-emerald-500 bg-emerald-50/50' : 'border-l-transparent bg-white hover:bg-gray-50' }}">
+                <div wire:click="openNotification('{{ $notif->id }}')"
+                     role="button"
+                     tabindex="0"
+                     title="Klik untuk membuka menu terkait"
+                     class="group relative p-4 sm:p-5 transition-all duration-150 cursor-pointer border-l-4 {{ $isUnread ? 'border-l-emerald-500 bg-emerald-50/50 hover:bg-emerald-100/60' : 'border-l-transparent bg-white hover:bg-gray-50' }}">
                     <div class="flex items-start gap-4 sm:gap-5">
-                        <div class="p-1.5 sm:p-2 rounded-lg shrink-0 {{ $isWarning ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700' }}">
+                        <div class="p-1.5 sm:p-2 rounded-lg shrink-0 transition-transform group-hover:scale-105 {{ $isWarning ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700' }}">
                             @if($isWarning)
                                 <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -56,16 +60,32 @@
                         </div>
                         <div class="flex-1 min-w-0">
                             <div class="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 mb-1.5">
-                                <p class="min-w-0 text-sm font-semibold text-gray-900 leading-5 line-clamp-2">{{ $data['title'] ?? 'Notifikasi' }}</p>
-                                <span class="justify-self-end sm:justify-self-auto whitespace-nowrap text-xs leading-5 text-gray-400">{{ $notif->created_at ? $notif->created_at->diffForHumans() : '' }}</span>
+                                <p class="min-w-0 text-sm font-semibold text-gray-900 leading-5 line-clamp-2 group-hover:text-emerald-700 transition-colors">
+                                    {{ $data['title'] ?? 'Notifikasi' }}
+                                </p>
+                                <span class="justify-self-end sm:justify-self-auto whitespace-nowrap text-xs leading-5 text-gray-400">
+                                    {{ $notif->created_at ? $notif->created_at->diffForHumans() : '' }}
+                                </span>
                             </div>
-                            <p class="text-sm text-gray-600 line-clamp-2 leading-relaxed">{{ $data['description'] ?? ($data['message'] ?? '') }}</p>
+                            <p class="text-sm text-gray-600 line-clamp-2 leading-relaxed">
+                                {{ $data['description'] ?? ($data['message'] ?? '') }}
+                            </p>
                             
-                            @if($isUnread)
-                                <button wire:click="markAsRead('{{ $notif->id }}')" class="mt-2 inline-flex text-xs font-medium text-emerald-700 hover:text-emerald-900 hover:underline">
-                                    Tandai Dibaca
-                                </button>
-                            @endif
+                            <div class="mt-2.5 flex items-center justify-between gap-3">
+                                <span class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 group-hover:underline">
+                                    Buka Menu Terkait
+                                    <svg class="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </span>
+                                @if($isUnread)
+                                    <button wire:click.stop="markAsRead('{{ $notif->id }}')" 
+                                            type="button"
+                                            class="inline-flex text-xs font-medium text-gray-500 hover:text-emerald-700 hover:underline">
+                                        Tandai Dibaca
+                                    </button>
+                                @endif
+                            </div>
                         </div>
                     </div>
                 </div>

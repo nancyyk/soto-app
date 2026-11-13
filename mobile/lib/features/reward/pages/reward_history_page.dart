@@ -479,7 +479,7 @@ class _RedemptionCard extends StatelessWidget {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Kode: ' + (redemption.effectiveVoucherCode ?? ''),
+                            'Kode: ${redemption.effectiveVoucherCode ?? ''}',
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
