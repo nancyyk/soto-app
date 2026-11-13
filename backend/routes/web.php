@@ -33,8 +33,16 @@ Route::middleware(['auth'])->group(function () {
 
     // Admin-only routes
     Route::middleware('role:admin')->group(function () {
-    Route::get('/reward', fn () => view('reward.index'))->name('reward.index');
-    Route::get('/pengguna', fn () => view('pengguna.index'))->name('pengguna.index');
-    Route::get('/pengaturan', fn () => view('pengaturan.index'))->name('pengaturan.index');
+        Route::get('/reward', fn () => view('reward.index'))->name('reward.index');
+        Route::get('/pengguna', fn () => view('pengguna.index'))->name('pengguna.index');
+        Route::get('/pengaturan', fn () => view('pengaturan.index'))->name('pengaturan.index');
+
+        // Ekspor Laporan Rute & Kinerja Logistik
+        Route::prefix('laporan')->name('laporan.')->group(function () {
+            Route::get('/rute/pdf', [App\Http\Controllers\Admin\LaporanRuteController::class, 'manifestPdf'])->name('rute.pdf');
+            Route::get('/rute/excel', [App\Http\Controllers\Admin\LaporanRuteController::class, 'manifestExcel'])->name('rute.excel');
+            Route::get('/kinerja/pdf', [App\Http\Controllers\Admin\LaporanRuteController::class, 'kinerjaPdf'])->name('kinerja.pdf');
+            Route::get('/kinerja/excel', [App\Http\Controllers\Admin\LaporanRuteController::class, 'kinerjaExcel'])->name('kinerja.excel');
+        });
     });
 });
