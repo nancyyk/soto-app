@@ -364,7 +364,11 @@ class _RedeemDialogState extends State<_RedeemDialog> {
 
       final pageCtx = widget.pageContext;
       if (pageCtx.mounted) {
-        ScaffoldMessenger.of(pageCtx).showSnackBar(
+        GoRouter.of(pageCtx).pop();
+      }
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        AppRouter.scaffoldMessengerKey.currentState?.showSnackBar(
           SnackBar(
             content: const Text('Reward berhasil ditukar!'),
             duration: const Duration(seconds: 5),
@@ -382,8 +386,7 @@ class _RedeemDialogState extends State<_RedeemDialog> {
             ),
           ),
         );
-        GoRouter.of(pageCtx).pop();
-      }
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);

@@ -673,88 +673,84 @@ class _TimelineTile extends StatelessWidget {
     const activeColor = Color(0xFF2D6A4F);
     const inactiveColor = Color(0xFFD1D5DB);
 
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-
-          SizedBox(
-            width: 32,
-            child: Column(
-              children: [
-                Container(
-                  width: 22,
-                  height: 22,
-                  decoration: BoxDecoration(
-                    color: isCompleted
-                        ? activeColor
-                        : Colors.white,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isCompleted ? activeColor : inactiveColor,
-                      width: 2,
-                    ),
-                  ),
-                  child: Center(
-                    child: isCompleted
-                        ? const Icon(
-                            Icons.check,
-                            size: 13,
-                            color: Colors.white,
-                          )
-                        : Container(
-                            width: 6,
-                            height: 6,
-                            decoration: BoxDecoration(
-                              color: inactiveColor,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
+    return Stack(
+      children: [
+        if (!isLast)
+          Positioned(
+            left: 10,
+            top: 22,
+            bottom: 0,
+            child: Container(
+              width: 2,
+              color: isCompleted ? activeColor : inactiveColor,
+            ),
+          ),
+        Padding(
+          padding: EdgeInsets.only(bottom: isLast ? 0 : 20),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: isCompleted ? activeColor : Colors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isCompleted ? activeColor : inactiveColor,
+                    width: 2,
                   ),
                 ),
-                if (!isLast)
-                  Expanded(
-                    child: Container(
-                      width: 2,
-                      color: isCompleted ? activeColor : inactiveColor,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(bottom: isLast ? 0 : 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight:
-                          isCurrent || isCompleted ? FontWeight.w700 : FontWeight.w500,
-                      color: isCompleted
-                          ? RewardRedemptionDetailPage.textDark
-                          : const Color(0xFF9CA3AF),
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: const Color(0xFF6B7280),
-                      height: 1.3,
-                    ),
-                  ),
-                ],
+                child: Center(
+                  child: isCompleted
+                      ? const Icon(
+                          Icons.check,
+                          size: 13,
+                          color: Colors.white,
+                        )
+                      : Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: inactiveColor,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                ),
               ),
-            ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: isCurrent || isCompleted
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                        color: isCompleted
+                            ? RewardRedemptionDetailPage.textDark
+                            : const Color(0xFF9CA3AF),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF6B7280),
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

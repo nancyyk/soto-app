@@ -36,6 +36,7 @@ class SotoApp extends StatelessWidget {
       title: 'SOTO',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
+      scaffoldMessengerKey: AppRouter.scaffoldMessengerKey,
       routerConfig: AppRouter.router,
       locale: languageProvider.locale,
       supportedLocales: LanguageProvider.supportedLocales,
