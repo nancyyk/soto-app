@@ -456,6 +456,51 @@ class _RedemptionCard extends StatelessWidget {
 
                 const SizedBox(height: 10),
 
+                // INFO KODE VOUCHER JIKA VOUCHER
+                if (redemption.effectiveVoucherCode != null) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0FDF4),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFBBF7D0)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.confirmation_number_outlined,
+                          size: 16,
+                          color: Color(0xFF16A34A),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Kode: ' + (redemption.effectiveVoucherCode ?? ''),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              fontFamily: 'monospace',
+                              color: Color(0xFF15803D),
+                            ),
+                          ),
+                        ),
+                        const Text(
+                          'Lihat Voucher',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF16A34A),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
                 // ACTION: Tap to see details
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,

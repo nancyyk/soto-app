@@ -19,6 +19,7 @@ class RewardRedemptionsTable extends Component
     public string $status = 'Proses';
     public ?string $ekspedisi = '';
     public ?string $nomor_resi = '';
+    public ?string $kode_voucher = '';
 
     // Selected redemption info for modal display
     public ?string $selectedUserName = '';
@@ -48,6 +49,7 @@ class RewardRedemptionsTable extends Component
         $this->status = $redemption->status ?? 'Proses';
         $this->ekspedisi = $redemption->ekspedisi ?? '';
         $this->nomor_resi = $redemption->nomor_resi ?? '';
+        $this->kode_voucher = $redemption->kode_voucher ?? '';
         $this->selectedUserName = $redemption->user?->nama ?? 'Pengguna #' . $redemption->user_id;
         $this->selectedRewardName = ($redemption->reward?->kode ? $redemption->reward->kode . ' • ' : '') . ($redemption->reward?->nama ?? 'Reward #' . $redemption->reward_id);
         $this->selectedPointsUsed = (int) $redemption->poin;
@@ -100,6 +102,10 @@ class RewardRedemptionsTable extends Component
         $this->validate($rules, $messages);
 
         $data = ['status' => $this->status];
+
+        if ($redemption->reward?->kategori === 'Voucher') {
+            $data['kode_voucher'] = $this->kode_voucher ?: $redemption->kode_voucher;
+        }
 
         if (! $isPhysicalReward) {
             // Digital rewards never use shipping, including stale legacy values.

@@ -12,6 +12,7 @@ class RewardRedemption extends Model
         'reward_id',
         'poin',
         'status',
+        'kode_voucher',
         'shipping_address',
         'recipient_number',
         'ekspedisi',

@@ -14,6 +14,7 @@ use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Str;
 
 class RewardController extends Controller
 {
@@ -36,6 +37,7 @@ class RewardController extends Controller
 
         $shippingAddress = null;
         $recipientNumber = null;
+        $kodeVoucher = null;
 
         if ($reward->kategori === 'Merchandise') {
             $request->validate([
@@ -47,6 +49,9 @@ class RewardController extends Controller
                 'recipient_number' => 'required|string',
             ]);
             $recipientNumber = $request->recipient_number;
+        } elseif ($reward->kategori === 'Voucher') {
+            $codePrefix = !empty($reward->kode) ? $reward->kode : 'VCR';
+            $kodeVoucher = 'SOTO-' . strtoupper($codePrefix) . '-' . strtoupper(Str::random(6));
         }
 
         if ($reward->stok < 1) {
@@ -74,6 +79,7 @@ class RewardController extends Controller
                 'reward_id' => $reward->id,
                 'poin' => $reward->poin,
                 'status' => 'proses',
+                'kode_voucher' => $kodeVoucher,
                 'shipping_address' => $shippingAddress,
                 'recipient_number' => $recipientNumber,
                 'ekspedisi' => null,

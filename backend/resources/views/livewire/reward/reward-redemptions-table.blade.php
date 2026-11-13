@@ -27,7 +27,7 @@
                         <th class="table-th text-right">Poin</th>
                         <th class="table-th text-center">Status</th>
                         <th class="table-th text-center">Ekspedisi</th>
-                        <th class="table-th">Nomor Resi</th>
+                        <th class="table-th">No. Resi / Kode Voucher</th>
                         <th class="table-th text-right">Aksi</th>
                     </tr>
                 </thead>
@@ -69,7 +69,13 @@
                             {{ $item->reward?->kategori === 'Merchandise' ? ($item->ekspedisi ?: '-') : '-' }}
                         </td>
                         <td class="table-td text-xs font-mono text-gray-700">
-                            {{ $item->reward?->kategori === 'Merchandise' ? ($item->nomor_resi ?: '-') : '-' }}
+                            @if($item->reward?->kategori === 'Merchandise')
+                                {{ $item->nomor_resi ?: '-' }}
+                            @elseif($item->reward?->kategori === 'Voucher')
+                                <span class="font-bold text-emerald-700">{{ $item->kode_voucher ?: ('SOTO-' . ($item->reward->kode ?? 'VCR') . '-' . str_pad($item->id, 4, '0', STR_PAD_LEFT)) }}</span>
+                            @else
+                                -
+                            @endif
                         </td>
                         <td class="table-td text-right">
                             <button type="button" wire:click="openUpdateModal({{ $item->id }})" class="text-xs text-blue-600 hover:underline font-medium">
@@ -148,8 +154,11 @@
                             <h4 class="text-sm font-semibold text-gray-800 mb-2">Nomor HP Tujuan</h4>
                             <p class="text-sm font-mono font-medium text-gray-900 leading-relaxed break-words">{{ $selectedRecipientNumber ?: 'Nomor HP belum tersedia' }}</p>
                         @elseif($selectedRewardCategory === 'Voucher')
-                            <h4 class="text-sm font-semibold text-gray-800 mb-2">Data Penerima</h4>
-                            <p class="text-sm text-gray-500 leading-relaxed">Tidak diperlukan — kode voucher diberikan setelah penukaran.</p>
+                            <h4 class="text-sm font-semibold text-gray-800 mb-2">Kode Voucher</h4>
+                            <div class="flex items-center gap-2">
+                                <input wire:model="kode_voucher" type="text" placeholder="Contoh: SOTO-VCR-10K-A8K2" class="form-input font-mono text-sm max-w-sm" />
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">Kode voucher ini otomatis diberikan kepada pengguna saat penukaran dan dapat disalin di aplikasi mobile.</p>
                         @else
                             <h4 class="text-sm font-semibold text-gray-800 mb-2">Data Penerima</h4>
                             <p class="text-sm text-gray-700 leading-relaxed">{{ $selectedShippingAddress ?: ($selectedRecipientNumber ?: 'Data penerima belum tersedia') }}</p>

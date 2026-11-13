@@ -10,6 +10,7 @@ class RewardRedemptionData {
   final String? recipientNumber;
   final String? expedition;
   final String? trackingNumber;
+  final String? voucherCode;
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final RewardData? reward;
@@ -24,12 +25,22 @@ class RewardRedemptionData {
     this.recipientNumber,
     this.expedition,
     this.trackingNumber,
+    this.voucherCode,
     this.createdAt,
     this.updatedAt,
     this.reward,
   });
 
   factory RewardRedemptionData.fromJson(Map<String, dynamic> json) {
+    final rewardObj = json['reward'] != null && json['reward'] is Map<String, dynamic>
+        ? RewardData.fromJson(json['reward'] as Map<String, dynamic>)
+        : null;
+
+    final rawVoucher = (json['kode_voucher'] ??
+            json['voucher_code'] ??
+            json['kode'])
+        ?.toString();
+
     return RewardRedemptionData(
       id: json['id'] as int? ?? 0,
       userId: json['user_id'] as int? ?? 0,
@@ -40,16 +51,27 @@ class RewardRedemptionData {
       recipientNumber: json['recipient_number'] as String?,
       expedition: json['ekspedisi'] as String?,
       trackingNumber: json['nomor_resi'] as String?,
+      voucherCode: rawVoucher,
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'].toString())?.toLocal()
           : null,
       updatedAt: json['updated_at'] != null
           ? DateTime.tryParse(json['updated_at'].toString())?.toLocal()
           : null,
-      reward: json['reward'] != null && json['reward'] is Map<String, dynamic>
-          ? RewardData.fromJson(json['reward'] as Map<String, dynamic>)
-          : null,
+      reward: rewardObj,
     );
+  }
+
+  /// Mendapatkan kode voucher belanja (jika kategori Voucher)
+  String? get effectiveVoucherCode {
+    if (voucherCode != null && voucherCode!.trim().isNotEmpty) {
+      return voucherCode!.trim();
+    }
+    if (reward?.category.toLowerCase() == 'voucher') {
+      final codePrefix = reward?.code.isNotEmpty == true ? reward!.code : 'VCR';
+      return 'SOTO-$codePrefix-${id.toString().padLeft(4, '0')}';
+    }
+    return null;
   }
 
   /// Status ternormalisasi (Proses, Pengiriman, Selesai)
