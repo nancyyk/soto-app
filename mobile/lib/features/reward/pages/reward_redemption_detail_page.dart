@@ -316,6 +316,8 @@ class RewardRedemptionDetailPage extends StatelessWidget {
                     backgroundColor: const Color(0xFF16A34A),
                     foregroundColor: Colors.white,
                     elevation: 0,
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
@@ -839,6 +841,7 @@ class _SummaryRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
@@ -847,12 +850,16 @@ class _SummaryRow extends StatelessWidget {
             color: Color(0xFF6B7280),
           ),
         ),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: isBold ? FontWeight.w700 : FontWeight.w500,
-            color: valueColor ?? RewardRedemptionDetailPage.textDark,
+        const SizedBox(width: 12),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: isBold ? FontWeight.w700 : FontWeight.w500,
+              color: valueColor ?? RewardRedemptionDetailPage.textDark,
+            ),
           ),
         ),
       ],
