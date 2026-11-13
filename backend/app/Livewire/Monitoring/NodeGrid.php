@@ -8,29 +8,26 @@ use Livewire\Component;
 
 class NodeGrid extends Component
 {
-    public $machines;
-
-    public function mount(): void
+    public function refreshMachines(): void
     {
-        $this->machines = Machine::orderBy('id')->get();
+        // Mark stale real devices (no telemetry/heartbeat > 30s) as offline in DB
+        Machine::stale()->update(['status_online' => false]);
     }
 
     #[On('echo-private:admin-dashboard,.NodeTelemetryUpdated')]
     public function handleTelemetry(array $event): void
     {
-        $this->machines = $this->machines->map(function ($m) use ($event) {
-            if ($m->id === $event['machine_id']) {
-                $m->kapasitas_terkini = $event['kapasitas'];
-                $m->status_online = $event['status_online'];
-                $m->tegangan_baterai = $event['tegangan_baterai'];
-            }
-
-            return $m;
-        });
+        $this->refreshMachines();
     }
 
     public function render()
     {
-        return view('livewire.monitoring.node-grid');
+        Machine::stale()->update(['status_online' => false]);
+        $machines = Machine::orderBy('id')->get();
+
+        return view('livewire.monitoring.node-grid', [
+            'machines' => $machines,
+        ]);
     }
 }
+

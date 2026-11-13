@@ -1,4 +1,4 @@
-<div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+<div wire:poll.5s="refresh" class="grid grid-cols-2 lg:grid-cols-4 gap-4">
 
     <div class="stat-card">
         <div class="w-12 h-12 rounded-lg bg-emerald-50  flex items-center justify-center flex-shrink-0">

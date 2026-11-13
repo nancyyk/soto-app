@@ -1,4 +1,4 @@
-<div class="space-y-6">
+<div wire:poll.3s="refreshMachine" class="space-y-6">
     <div class="card p-5">
         <div class="flex flex-wrap items-center gap-4">
             <div class="flex-1">
@@ -12,17 +12,29 @@
                     <p class="text-xs text-gray-500 ">Kapasitas</p>
                 </div>
                 <div class="text-center">
-                    <p class="text-3xl font-bold text-gray-700 ">{{ $machine->tegangan_baterai ? number_format($machine->tegangan_baterai, 1) : "?" }}</p>
+                    <p class="text-3xl font-bold text-gray-700 ">{{ $machine->tegangan_baterai ? number_format($machine->tegangan_baterai, 1) : "-" }}</p>
                     <p class="text-xs text-gray-500 ">Volt</p>
                 </div>
                 <div class="text-center self-center">
-                    <span class="{{ $machine->status_online ? "badge-green" : "badge-gray" }} text-sm px-3 py-1">
-                        {{ $machine->status_online ? "Online" : "Offline" }}
+                    @php $online = $machine->isOnline(); @endphp
+                    <span class="{{ $online ? "badge-green" : "badge-gray" }} text-sm px-3 py-1 inline-flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full {{ $online ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400' }}"></span>
+                        {{ $online ? "Online" : "Offline" }}
                     </span>
+                    @if(!$machine->is_simulation)
+                        <p class="text-[10px] {{ $online ? 'text-emerald-600 font-medium' : 'text-gray-400' }} mt-1">
+                            @if($machine->last_seen_at)
+                                {{ $online ? 'Aktif ' . $machine->last_seen_at->diffForHumans() : 'Mati ' . $machine->last_seen_at->diffForHumans() }}
+                            @else
+                                Belum pernah aktif
+                            @endif
+                        </p>
+                    @endif
                 </div>
             </div>
         </div>
     </div>
+
 
     {{-- Panel Simulasi Kapasitas (hanya untuk node simulasi) --}}
     @if($machine->is_simulation)

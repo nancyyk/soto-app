@@ -12,6 +12,7 @@ Route::middleware(['auth'])->group(function () {
     // Dashboard
     Route::get('/', fn () => redirect()->route('dashboard'));
     Route::get('/dashboard', function () {
+        Machine::stale()->update(['status_online' => false]);
         $machines = Machine::orderBy('id')->get();
 
         return view('dashboard.index', compact('machines'));

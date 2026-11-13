@@ -36,6 +36,7 @@ class RutePage extends Component
 
     public function loadData(): void
     {
+        Machine::stale()->update(['status_online' => false]);
         $this->threshold = (int) Setting::get('tsp_threshold', 80);
         $this->latestRoute = Route::with('stops.machine')->latest('id')->first();
         $this->machines = Machine::all(['id', 'nama_lokasi', 'latitude', 'longitude', 'kapasitas_terkini', 'threshold_capacity', 'status_online', 'is_simulation'])->toArray();

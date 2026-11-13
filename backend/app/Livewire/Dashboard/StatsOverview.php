@@ -29,6 +29,7 @@ class StatsOverview extends Component
     #[On('echo-private:admin-dashboard,.TransactionCreated')]
     public function refresh(): void
     {
+        Machine::stale()->update(['status_online' => false]);
         $this->totalBotolHariIni = Transaction::whereDate('created_at', today())->sum('jumlah_botol');
         $this->totalPoinHariIni = Transaction::whereDate('created_at', today())->sum('poin_diperoleh');
         $this->nodeAktif = Machine::where('status_online', true)->count();
@@ -36,6 +37,7 @@ class StatsOverview extends Component
         $this->nodeKritis = Machine::aboveThreshold()->count();
         $this->totalBotolAll = Transaction::sum('jumlah_botol');
     }
+
 
     public function render()
     {

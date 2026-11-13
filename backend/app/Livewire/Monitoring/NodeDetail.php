@@ -5,6 +5,7 @@ namespace App\Livewire\Monitoring;
 use App\Models\LogCapacity;
 use App\Models\Machine;
 use App\Services\NotificationService;
+use Livewire\Attributes\On;
 use Livewire\Component;
 
 class NodeDetail extends Component
@@ -19,7 +20,22 @@ class NodeDetail extends Component
     {
         $this->machine = $machine;
         $this->simKapasitas = (int) $machine->kapasitas_terkini;
+        $this->refreshMachine();
+    }
+
+    public function refreshMachine(): void
+    {
+        Machine::stale()->update(['status_online' => false]);
+        $this->machine->refresh();
         $this->loadChart();
+    }
+
+    #[On('echo-private:admin-dashboard,.NodeTelemetryUpdated')]
+    public function handleTelemetry(array $event): void
+    {
+        if ($this->machine->id === ($event['machine_id'] ?? null)) {
+            $this->refreshMachine();
+        }
     }
 
     public function loadChart(): void
