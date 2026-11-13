@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/router/app_router.dart';
 import '../data/reward_redemption_data.dart';
 import '../widgets/reward_image.dart';
 
@@ -22,33 +23,50 @@ class RewardRedemptionDetailPage extends StatelessWidget {
     final reward = redemption.reward;
     final status = redemption.normalizedStatus;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF9FAF9),
-      body: SafeArea(
-        child: Column(
-          children: [
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go(AppRouter.rewardHistory);
+          }
+        }
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF9FAF9),
+        body: SafeArea(
+          child: Column(
+            children: [
 
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
-              child: Row(
-                children: [
-                  InkWell(
-                    borderRadius: BorderRadius.circular(20),
-                    onTap: () => context.pop(),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: const Color(0xFFE4E6E4)),
-                      ),
-                      child: const Icon(
-                        Icons.arrow_back_ios_new,
-                        size: 18,
-                        color: textDark,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+                child: Row(
+                  children: [
+                    InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: () {
+                        if (context.canPop()) {
+                          context.pop();
+                        } else {
+                          context.go(AppRouter.rewardHistory);
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: const Color(0xFFE4E6E4)),
+                        ),
+                        child: const Icon(
+                          Icons.arrow_back_ios_new,
+                          size: 18,
+                          color: textDark,
+                        ),
                       ),
                     ),
-                  ),
                   const Expanded(
                     child: Center(
                       child: Text(
@@ -105,6 +123,7 @@ class RewardRedemptionDetailPage extends StatelessWidget {
           ],
         ),
       ),
+    ),
     );
   }
 
@@ -673,22 +692,13 @@ class _TimelineTile extends StatelessWidget {
     const activeColor = Color(0xFF2D6A4F);
     const inactiveColor = Color(0xFFD1D5DB);
 
-    return Stack(
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (!isLast)
-          Positioned(
-            left: 10,
-            top: 22,
-            bottom: 0,
-            child: Container(
-              width: 2,
-              color: isCompleted ? activeColor : inactiveColor,
-            ),
-          ),
-        Padding(
-          padding: EdgeInsets.only(bottom: isLast ? 0 : 20),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        SizedBox(
+          width: 22,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Container(
                 width: 22,
@@ -711,43 +721,53 @@ class _TimelineTile extends StatelessWidget {
                       : Container(
                           width: 6,
                           height: 6,
-                          decoration: BoxDecoration(
+                          decoration: const BoxDecoration(
                             color: inactiveColor,
                             shape: BoxShape.circle,
                           ),
                         ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: isCurrent || isCompleted
-                            ? FontWeight.w700
-                            : FontWeight.w500,
-                        color: isCompleted
-                            ? RewardRedemptionDetailPage.textDark
-                            : const Color(0xFF9CA3AF),
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF6B7280),
-                        height: 1.3,
-                      ),
-                    ),
-                  ],
+              if (!isLast)
+                Container(
+                  width: 2,
+                  height: 32,
+                  color: isCompleted ? activeColor : inactiveColor,
                 ),
-              ),
             ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(bottom: isLast ? 0 : 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: isCurrent || isCompleted
+                        ? FontWeight.w700
+                        : FontWeight.w500,
+                    color: isCompleted
+                        ? RewardRedemptionDetailPage.textDark
+                        : const Color(0xFF9CA3AF),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF6B7280),
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ],
