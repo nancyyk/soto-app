@@ -141,7 +141,7 @@
             </div>
             <ol class="space-y-3">
                 <li class="flex items-center gap-3">
-                    <span class="w-8 h-8 rounded-full bg-green-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0 shadow-sm">D</span>
+                    <span class="w-8 h-8 rounded-full bg-green-600 text-white text-xs font-bold flex items-center justify-center shrink-0 shadow-sm">D</span>
                     <div>
                         <p class="text-sm font-semibold text-gray-800 ">{{ $mapData['depot']['nama'] ?? 'Pos Pengangkutan' }} (Depot)</p>
                         <p class="text-xs text-gray-400">Titik Awal Keberangkatan</p>
@@ -151,7 +151,7 @@
 
                 @foreach($latestRoute->stops->sortBy("urutan") as $stop)
                 <li class="flex items-center gap-3 pl-2 border-l-2 border-blue-200 ml-4">
-                    <span class="w-8 h-8 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0 shadow-sm -ml-6">
+                    <span class="w-8 h-8 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0 shadow-sm -ml-6">
                         {{ $stop->urutan }}
                     </span>
                     <div class="ml-2">
@@ -165,7 +165,7 @@
                 @endforeach
 
                 <li class="flex items-center gap-3">
-                    <span class="w-8 h-8 rounded-full bg-green-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0 shadow-sm">D</span>
+                    <span class="w-8 h-8 rounded-full bg-green-600 text-white text-xs font-bold flex items-center justify-center shrink-0 shadow-sm">D</span>
                     <div>
                         <p class="text-sm font-semibold text-gray-800 ">{{ $mapData['depot']['nama'] ?? 'Pos Pengangkutan' }} (Depot)</p>
                         <p class="text-xs text-gray-400">Kembali ke Pos Depot (Sirkuit Tertutup)</p>

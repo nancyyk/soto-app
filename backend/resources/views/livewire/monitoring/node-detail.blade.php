@@ -40,7 +40,6 @@
     @if($machine->is_simulation)
     <div class="card p-5 border-2 border-dashed border-yellow-300 bg-yellow-50 ">
         <div class="flex items-center gap-2 mb-4">
-            <span class="text-yellow-600  text-sm">⚡</span>
             <h3 class="text-sm font-semibold text-yellow-700 ">Simulasi Kapasitas</h3>
             <span class="ml-auto text-xs text-yellow-600  bg-yellow-100  px-2 py-0.5 rounded-full">Node Simulasi</span>
         </div>
@@ -59,7 +58,7 @@
         <div class="space-y-4">
             {{-- Input kapasitas --}}
             <div class="flex items-center gap-3">
-                <label class="text-sm text-gray-600  w-24 flex-shrink-0">Kapasitas (%)</label>
+                <label class="text-sm text-gray-600  w-24 shrink-0">Kapasitas (%)</label>
                 <input
                     wire:model.live="simKapasitas"
                     type="range"
