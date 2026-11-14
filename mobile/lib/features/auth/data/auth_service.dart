@@ -8,7 +8,7 @@ import '../../../core/services/push_notification_service.dart';
 
 class AuthService {
   static const String azureBaseUrl = 'http://20.70.176.117/api/v1';
-  static const String localBaseUrl = 'http://192.168.30.98:8000/api/v1';
+  static const String localBaseUrl = 'http://localhost:8000/api/v1';
 
   /// Menandai apakah server Azure VM sedang mengalami gangguan.
   /// Jika true, baseUrl otomatis beralih ke server lokal.

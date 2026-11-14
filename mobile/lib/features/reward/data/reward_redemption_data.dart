@@ -82,12 +82,48 @@ class RewardRedemptionData {
     return null;
   }
 
-  /// Status ternormalisasi (Proses, Pengiriman, Selesai)
+  /// Status ternormalisasi (Proses, Pengiriman, Selesai, Dibatalkan)
   String get normalizedStatus {
     final s = status.trim().toLowerCase();
     if (s == 'selesai') return 'Selesai';
     if (s == 'pengiriman') return 'Pengiriman';
+    if (s == 'dibatalkan' || s == 'cancelled' || s == 'batal') return 'Dibatalkan';
     return 'Proses';
+  }
+
+  bool get canBeCancelled => normalizedStatus == 'Proses';
+  bool get isCancelled => normalizedStatus == 'Dibatalkan';
+
+  RewardRedemptionData copyWith({
+    int? id,
+    int? userId,
+    int? rewardId,
+    int? points,
+    String? status,
+    String? shippingAddress,
+    String? recipientNumber,
+    String? expedition,
+    String? trackingNumber,
+    String? voucherCode,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    RewardData? reward,
+  }) {
+    return RewardRedemptionData(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      rewardId: rewardId ?? this.rewardId,
+      points: points ?? this.points,
+      status: status ?? this.status,
+      shippingAddress: shippingAddress ?? this.shippingAddress,
+      recipientNumber: recipientNumber ?? this.recipientNumber,
+      expedition: expedition ?? this.expedition,
+      trackingNumber: trackingNumber ?? this.trackingNumber,
+      voucherCode: voucherCode ?? this.voucherCode,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      reward: reward ?? this.reward,
+    );
   }
 
   /// Format tanggal ramah pengguna (contoh: 11 Okt 2026, 12:45 WIB)

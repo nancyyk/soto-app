@@ -4,9 +4,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/router/app_router.dart';
 import '../data/reward_redemption_data.dart';
+import '../data/reward_service.dart';
 import '../widgets/reward_image.dart';
 
-class RewardRedemptionDetailPage extends StatelessWidget {
+class RewardRedemptionDetailPage extends StatefulWidget {
   final RewardRedemptionData redemption;
 
   const RewardRedemptionDetailPage({
@@ -19,16 +20,210 @@ class RewardRedemptionDetailPage extends StatelessWidget {
   static const Color textDark = Color(0xFF263238);
 
   @override
+  State<RewardRedemptionDetailPage> createState() =>
+      _RewardRedemptionDetailPageState();
+}
+
+class _RewardRedemptionDetailPageState
+    extends State<RewardRedemptionDetailPage> {
+  static const Color green = RewardRedemptionDetailPage.green;
+  static const Color textDark = RewardRedemptionDetailPage.textDark;
+
+  late RewardRedemptionData _redemption;
+  final _rewardService = RewardService();
+  bool _isCancelling = false;
+
+  RewardRedemptionData get redemption => _redemption;
+
+  @override
+  void initState() {
+    super.initState();
+    _redemption = widget.redemption;
+  }
+
+  Future<void> _showCancelDialog(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 24),
+            SizedBox(width: 8),
+            Text(
+              'Batalkan Pesanan?',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: RewardRedemptionDetailPage.textDark,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          'Apakah Anda yakin ingin membatalkan penukaran reward ini?\n\nPoin sebanyak ${_redemption.points} pts akan dikembalikan ke saldo akun Anda.',
+          style: const TextStyle(
+            fontSize: 13,
+            color: Color(0xFF555555),
+            height: 1.5,
+          ),
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text(
+              'Tidak, Kembali',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF757575),
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
+            child: const Text(
+              'Ya, Batalkan',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      _executeCancel();
+    }
+  }
+
+  Future<void> _executeCancel() async {
+    setState(() => _isCancelling = true);
+
+    try {
+      final res = await _rewardService.cancelRedemption(_redemption.id);
+      if (mounted) {
+        setState(() {
+          _redemption = _redemption.copyWith(status: 'dibatalkan');
+          _isCancelling = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    res['message']?.toString() ??
+                        'Pesanan berhasil dibatalkan dan poin telah dikembalikan.',
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFF166534),
+            duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isCancelling = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    e.toString().replaceAll('Exception: ', ''),
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFFDC2626),
+            duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _buildCancelButton(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: OutlinedButton(
+        onPressed: _isCancelling ? null : () => _showCancelDialog(context),
+        style: OutlinedButton.styleFrom(
+          side: const BorderSide(color: Color(0xFFFCA5A5), width: 1.5),
+          backgroundColor: const Color(0xFFFEF2F2),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        child: _isCancelling
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: Color(0xFFDC2626),
+                ),
+              )
+            : const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.cancel_outlined,
+                    size: 18,
+                    color: Color(0xFFDC2626),
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    'Batalkan Pesanan',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFFDC2626),
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final reward = redemption.reward;
-    final status = redemption.normalizedStatus;
+    final reward = _redemption.reward;
+    final status = _redemption.normalizedStatus;
 
     return PopScope(
       canPop: true,
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop) {
           if (context.canPop()) {
-            context.pop();
+            context.pop(true);
           } else {
             context.go(AppRouter.rewardHistory);
           }
@@ -39,7 +234,6 @@ class RewardRedemptionDetailPage extends StatelessWidget {
         body: SafeArea(
           child: Column(
             children: [
-
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
                 child: Row(
@@ -48,7 +242,7 @@ class RewardRedemptionDetailPage extends StatelessWidget {
                       borderRadius: BorderRadius.circular(20),
                       onTap: () {
                         if (context.canPop()) {
-                          context.pop();
+                          context.pop(true);
                         } else {
                           context.go(AppRouter.rewardHistory);
                         }
@@ -63,67 +257,71 @@ class RewardRedemptionDetailPage extends StatelessWidget {
                         child: const Icon(
                           Icons.arrow_back_ios_new,
                           size: 18,
-                          color: textDark,
+                          color: RewardRedemptionDetailPage.textDark,
                         ),
                       ),
                     ),
-                  const Expanded(
-                    child: Center(
-                      child: Text(
-                        'Status Penukaran',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: textDark,
+                    const Expanded(
+                      child: Center(
+                        child: Text(
+                          'Status Penukaran',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: RewardRedemptionDetailPage.textDark,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 36),
-                ],
-              ),
-            ),
-
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 30),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-
-                    _buildStatusOverview(context, status),
-
-                    if (redemption.effectiveVoucherCode != null) ...[
-                      const SizedBox(height: 20),
-                      _buildVoucherCodeCard(context, redemption.effectiveVoucherCode!),
-                    ],
-
-                    const SizedBox(height: 20),
-
-                    // TRACKING TIMELINE / STEPPER
-                    _buildTrackingTimeline(status),
-
-                    const SizedBox(height: 20),
-
-                    _buildRewardCard(reward),
-
-                    const SizedBox(height: 20),
-
-                    // DATA PENERIMA / PENGIRIMAN
-                    _buildRecipientCard(context),
-
-                    const SizedBox(height: 20),
-
-                    _buildSummaryCard(),
+                    const SizedBox(width: 36),
                   ],
                 ),
               ),
-            ),
-          ],
+
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 30),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildStatusOverview(context, status),
+
+                      if (_redemption.effectiveVoucherCode != null) ...[
+                        const SizedBox(height: 20),
+                        _buildVoucherCodeCard(context, _redemption.effectiveVoucherCode!),
+                      ],
+
+                      const SizedBox(height: 20),
+
+                      // TRACKING TIMELINE / STEPPER
+                      _buildTrackingTimeline(status),
+
+                      const SizedBox(height: 20),
+
+                      _buildRewardCard(reward),
+
+                      const SizedBox(height: 20),
+
+                      // DATA PENERIMA / PENGIRIMAN
+                      _buildRecipientCard(context),
+
+                      const SizedBox(height: 20),
+
+                      _buildSummaryCard(),
+
+                      if (_redemption.canBeCancelled) ...[
+                        const SizedBox(height: 24),
+                        _buildCancelButton(context),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-    ),
     );
   }
 
@@ -145,6 +343,12 @@ class RewardRedemptionDetailPage extends StatelessWidget {
         fg = const Color(0xFF1E40AF);
         icon = Icons.local_shipping_rounded;
         statusDesc = 'Reward sedang dalam perjalanan pengiriman ke alamat tujuan.';
+        break;
+      case 'dibatalkan':
+        bg = const Color(0xFFFEE2E2);
+        fg = const Color(0xFFDC2626);
+        icon = Icons.cancel_rounded;
+        statusDesc = 'Penukaran reward telah dibatalkan. Poin telah dikembalikan ke saldo akun Anda.';
         break;
       case 'proses':
       default:
@@ -351,6 +555,60 @@ class RewardRedemptionDetailPage extends StatelessWidget {
   }
 
   Widget _buildTrackingTimeline(String status) {
+    if (status.toLowerCase() == 'dibatalkan') {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFFCA5A5)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: const BoxDecoration(
+                color: Color(0xFFFEE2E2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.cancel_rounded,
+                color: Color(0xFFDC2626),
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Pesanan Dibatalkan',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFFDC2626),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Penukaran ini telah dibatalkan. Poin sebesar ${_redemption.points} pts telah dikembalikan ke saldo akun Anda.',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF4B5563),
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     final step = _getStepIndex(status);
 
     return Container(

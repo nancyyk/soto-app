@@ -50,6 +50,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 // Rewards (User)
         Route::post('/rewards/redeem', [App\Http\Controllers\Api\V1\RewardController::class, 'redeem']);
         Route::get('/rewards/my-redemptions', [App\Http\Controllers\Api\V1\RewardController::class, 'myRedemptions']);
+        Route::post('/rewards/redemptions/{id}/cancel', [App\Http\Controllers\Api\V1\RewardController::class, 'cancelRedemption']);
         
         // Notifications (User & Admin)
         Route::get('/notifications', [App\Http\Controllers\Api\V1\NotificationController::class, 'index']);

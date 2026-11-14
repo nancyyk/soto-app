@@ -92,23 +92,73 @@ class RewardDetailPage extends StatelessWidget {
                     ),
 
                     const SizedBox(height: 22),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: lightGreen,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        reward.category,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: green,
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: lightGreen,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            reward.category,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: green,
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: reward.isOutOfStock
+                                ? const Color(0xFFFEE2E2)
+                                : (reward.stock <= 3
+                                    ? const Color(0xFFFEF3C7)
+                                    : const Color(0xFFE8F5E9)),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                reward.isOutOfStock
+                                    ? Icons.cancel_outlined
+                                    : Icons.inventory_2_outlined,
+                                size: 14,
+                                color: reward.isOutOfStock
+                                    ? const Color(0xFFDC2626)
+                                    : (reward.stock <= 3
+                                        ? const Color(0xFFD97706)
+                                        : const Color(0xFF2D6A4F)),
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                reward.isOutOfStock
+                                    ? 'Stok Habis'
+                                    : 'Stok: ${reward.stock} Tersedia',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: reward.isOutOfStock
+                                      ? const Color(0xFFDC2626)
+                                      : (reward.stock <= 3
+                                          ? const Color(0xFFD97706)
+                                          : const Color(0xFF2D6A4F)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
 
                     const SizedBox(height: 12),
@@ -208,18 +258,23 @@ class RewardDetailPage extends StatelessWidget {
                       width: double.infinity,
                       height: 54,
                       child: ElevatedButton(
-                        onPressed: () => _showRedeemDialog(context),
+                        onPressed: reward.isOutOfStock
+                            ? null
+                            : () => _showRedeemDialog(context),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: green,
+                          backgroundColor:
+                              reward.isOutOfStock ? const Color(0xFFB0BEC5) : green,
                           foregroundColor: Colors.white,
+                          disabledBackgroundColor: const Color(0xFFCFD8DC),
+                          disabledForegroundColor: Colors.white70,
                           elevation: 0,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
                         ),
-                        child: const Text(
-                          'Tukar Sekarang',
-                          style: TextStyle(
+                        child: Text(
+                          reward.isOutOfStock ? 'Stok Habis' : 'Tukar Sekarang',
+                          style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
                           ),

@@ -77,11 +77,11 @@ class RewardRedemptionsTable extends Component
         }
 
         // Decide shipping rules from the persisted reward category, not client state.
-        $redemption = RewardRedemption::with('reward')->findOrFail($this->editingId);
+        $redemption = RewardRedemption::with(['reward', 'user'])->findOrFail($this->editingId);
         $isPhysicalReward = $redemption->reward?->kategori === 'Merchandise';
         $rules = ['status' => $isPhysicalReward
-            ? 'required|in:Proses,Pengiriman,Selesai'
-            : 'required|in:Proses,Selesai'];
+            ? 'required|in:Proses,Pengiriman,Selesai,Dibatalkan'
+            : 'required|in:Proses,Selesai,Dibatalkan'];
 
         if ($isPhysicalReward && $this->status === 'Pengiriman') {
             $rules['ekspedisi'] = 'required|in:POS,J&T';
@@ -93,13 +93,21 @@ class RewardRedemptionsTable extends Component
 
         $messages = [
             'status.required' => 'Status wajib dipilih.',
-            'status.in' => 'Status harus berupa Proses, Pengiriman, atau Selesai.',
+            'status.in' => 'Status harus berupa Proses, Pengiriman, Selesai, atau Dibatalkan.',
             'ekspedisi.required' => 'Ekspedisi wajib dipilih saat status Pengiriman.',
             'ekspedisi.in' => 'Pilih ekspedisi POS atau J&T.',
             'nomor_resi.required' => 'Nomor resi wajib diisi saat status Pengiriman.',
         ];
 
         $this->validate($rules, $messages);
+
+        $oldStatus = strtolower($redemption->status ?? '');
+        $newStatus = strtolower($this->status);
+
+        if ($newStatus === 'dibatalkan' && $oldStatus !== 'dibatalkan') {
+            $redemption->user?->increment('saldo_poin', $redemption->poin);
+            $redemption->reward?->increment('stok');
+        }
 
         $data = ['status' => $this->status];
 

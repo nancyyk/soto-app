@@ -13,6 +13,7 @@
             <option value="Proses">Proses</option>
             <option value="Pengiriman">Pengiriman</option>
             <option value="Selesai">Selesai</option>
+            <option value="Dibatalkan">Dibatalkan</option>
         </select>
     </div>
 
@@ -57,10 +58,12 @@
                             -{{ number_format($item->poin) }} pts
                         </td>
                         <td class="table-td text-center">
-                            @if($item->status === 'Selesai')
+                            @if(strtolower($item->status) === 'selesai')
                                 <span class="badge-green">Selesai</span>
-                            @elseif($item->status === 'Pengiriman')
+                            @elseif(strtolower($item->status) === 'pengiriman')
                                 <span class="badge-blue">Pengiriman</span>
+                            @elseif(strtolower($item->status) === 'dibatalkan')
+                                <span class="badge-red">Dibatalkan</span>
                             @else
                                 <span class="badge-yellow">{{ $item->status ?? 'Proses' }}</span>
                             @endif
@@ -105,10 +108,12 @@
                     <h3 class="font-semibold text-lg text-gray-800">Detail Penukaran #{{ $editingId }}</h3>
                     <p class="text-sm text-gray-500 mt-1">Periksa informasi penukaran dan perbarui status.</p>
                 </div>
-                @if($status === 'Selesai')
+                @if(strtolower($status) === 'selesai')
                     <span class="badge-green shrink-0">Selesai</span>
-                @elseif($status === 'Pengiriman')
+                @elseif(strtolower($status) === 'pengiriman')
                     <span class="badge-blue shrink-0">Pengiriman</span>
+                @elseif(strtolower($status) === 'dibatalkan')
+                    <span class="badge-red shrink-0">Dibatalkan</span>
                 @else
                     <span class="badge-yellow shrink-0">{{ $status ?: 'Proses' }}</span>
                 @endif
@@ -175,6 +180,7 @@
                                         <option id="shipping-status-option" value="Pengiriman">Pengiriman</option>
                                     @endif
                                     <option value="Selesai">Selesai</option>
+                                    <option value="Dibatalkan">Dibatalkan</option>
                                 </select>
                                 @error('status') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                             </div>

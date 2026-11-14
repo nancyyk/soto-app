@@ -27,6 +27,7 @@ class _RewardHistoryPageState extends State<RewardHistoryPage> {
     'Proses',
     'Pengiriman',
     'Selesai',
+    'Dibatalkan',
   ];
 
   @override
@@ -551,6 +552,11 @@ class _StatusBadge extends StatelessWidget {
         bg = const Color(0xFFDBEAFE);
         fg = const Color(0xFF1E40AF);
         icon = Icons.local_shipping_outlined;
+        break;
+      case 'dibatalkan':
+        bg = const Color(0xFFFEE2E2);
+        fg = const Color(0xFFDC2626);
+        icon = Icons.cancel_outlined;
         break;
       case 'proses':
       default:

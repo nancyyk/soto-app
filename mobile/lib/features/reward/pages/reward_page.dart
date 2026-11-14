@@ -352,13 +352,46 @@ class _RewardCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      '${reward.points} Poin',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: RewardPage.green,
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          '${reward.points} Poin',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: RewardPage.green,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: reward.isOutOfStock
+                                ? const Color(0xFFFEE2E2)
+                                : (reward.stock <= 3
+                                    ? const Color(0xFFFEF3C7)
+                                    : const Color(0xFFE8F5E9)),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            reward.isOutOfStock
+                                ? 'Stok Habis'
+                                : 'Stok: ${reward.stock}',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: reward.isOutOfStock
+                                  ? const Color(0xFFDC2626)
+                                  : (reward.stock <= 3
+                                      ? const Color(0xFFD97706)
+                                      : const Color(0xFF2D6A4F)),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

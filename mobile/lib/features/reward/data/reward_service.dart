@@ -70,4 +70,29 @@ class RewardService {
       throw Exception('Gagal mengambil riwayat reward: $e');
     }
   }
+
+  Future<Map<String, dynamic>> cancelRedemption(int id) async {
+    try {
+      final response = await _dio.post('/rewards/redemptions/$id/cancel');
+      final data = response.data;
+      if (data is Map<String, dynamic>) {
+        if (data['data'] != null && data['data'] is Map<String, dynamic>) {
+          final resData = data['data'] as Map<String, dynamic>;
+          if (resData['saldo_poin'] != null) {
+            await AuthService().updateLocalUser({
+              'saldo_poin': resData['saldo_poin'],
+            });
+          }
+        }
+        return data;
+      }
+      return {};
+    } catch (e) {
+      if (e is DioException && e.response != null) {
+        throw Exception(
+            e.response?.data['message'] ?? 'Gagal membatalkan pesanan');
+      }
+      throw Exception('Gagal membatalkan pesanan: $e');
+    }
+  }
 }

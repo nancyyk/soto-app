@@ -29,12 +29,14 @@ class RewardData {
       code: (json['kode'] ?? json['code'] ?? '').toString(),
       title: json['nama'] ?? 'Reward',
       description: json['deskripsi'] ?? '',
-      points: json['poin'] ?? 0,
+      points: json['poin'] is num ? (json['poin'] as num).toInt() : (int.tryParse(json['poin']?.toString() ?? '') ?? 0),
       category: json['kategori'] ?? '',
-      stock: json['stok'] ?? 0,
+      stock: json['stok'] is num ? (json['stok'] as num).toInt() : (int.tryParse(json['stok']?.toString() ?? '') ?? 0),
       imagePath: resolveImagePath(rawImage),
     );
   }
+
+  bool get isOutOfStock => stock <= 0;
 
   static String resolveImagePath(String raw) {
     final trimmed = raw.trim();

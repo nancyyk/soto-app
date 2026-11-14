@@ -125,6 +125,58 @@ class RewardController extends Controller
         return response()->json($data);
     }
 
+    public function cancelRedemption(Request $request, $id)
+    {
+        /** @var \App\Models\User $user */
+        $user = $request->user();
+
+        $redemption = RewardRedemption::with('reward')
+            ->where('user_id', $user->id)
+            ->findOrFail($id);
+
+        if (strtolower($redemption->status) !== 'proses') {
+            return response()->json([
+                'message' => 'Pesanan tidak dapat dibatalkan karena status saat ini adalah ' . $redemption->status,
+            ], 400);
+        }
+
+        DB::beginTransaction();
+
+        try {
+            $redemption->update([
+                'status' => 'dibatalkan',
+            ]);
+
+            $user->increment('saldo_poin', $redemption->poin);
+
+            if ($redemption->reward) {
+                $redemption->reward->increment('stok');
+            }
+
+            DB::commit();
+
+            $user->refresh();
+            $redemption->refresh()->load('reward');
+
+            // Send notification to user
+            $user->notify(new RedemptionStatusUpdatedNotification($redemption));
+
+            return response()->json([
+                'message' => 'Pesanan berhasil dibatalkan dan poin telah dikembalikan',
+                'data' => [
+                    'redemption' => $redemption,
+                    'saldo_poin' => $user->saldo_poin,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'message' => 'Terjadi kesalahan sistem saat membatalkan pesanan',
+            ], 500);
+        }
+    }
+
     public function adminIndex()
     {
         return response()->json(
@@ -200,21 +252,40 @@ class RewardController extends Controller
         RewardRedemption $redemption
     ) {
         $validated = $request->validate([
-            'status' => 'required|in:proses,pengiriman,selesai',
+            'status' => 'required|in:proses,pengiriman,selesai,dibatalkan',
             'ekspedisi' => 'nullable|string',
             'nomor_resi' => 'nullable|string',
         ]);
 
-        $redemption->update($validated);
+        $oldStatus = strtolower($redemption->status ?? '');
+        $newStatus = strtolower($validated['status']);
 
-        if ($redemption->user) {
-            $redemption->user->notify(new RedemptionStatusUpdatedNotification($redemption));
+        DB::beginTransaction();
+
+        try {
+            if ($newStatus === 'dibatalkan' && $oldStatus !== 'dibatalkan') {
+                $redemption->user?->increment('saldo_poin', $redemption->poin);
+                $redemption->reward?->increment('stok');
+            }
+
+            $redemption->update($validated);
+            DB::commit();
+
+            if ($redemption->user) {
+                $redemption->user->notify(new RedemptionStatusUpdatedNotification($redemption->fresh()));
+            }
+
+            return response()->json([
+                'message' => 'Status diupdate',
+                'data' => $redemption->fresh()
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'message' => 'Terjadi kesalahan sistem saat memperbarui status penukaran',
+            ], 500);
         }
-
-        return response()->json([
-            'message' => 'Status diupdate',
-            'data' => $redemption
-        ]);
     }
 
     public function serveStorageImage(string $path)
