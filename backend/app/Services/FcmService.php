@@ -49,7 +49,7 @@ class FcmService
         $data = array_map('strval', $data);
 
         foreach ($tokens as $token) {
-            $response = Http::withToken($accessToken)->timeout(10)->post($url, [
+            $response = Http::withoutVerifying()->withToken($accessToken)->timeout(10)->post($url, [
                 'message' => [
                     'token' => $token,
                     'notification' => ['title' => $title, 'body' => $body],
@@ -57,7 +57,7 @@ class FcmService
                     'android' => [
                         'priority' => 'HIGH',
                         'notification' => [
-                            'channel_id' => 'soto_points',
+                            'channel_id' => 'setoran_poin_channel',
                             'visibility' => 'PUBLIC', // tampil penuh di lock screen
                             'sound' => 'default',
                         ],
@@ -70,6 +70,12 @@ class FcmService
             ]);
 
             if ($response->successful()) {
+                Log::info('FCM berhasil terkirim ke user', [
+                    'user_id' => $userId,
+                    'title' => $title,
+                    'token' => substr($token, 0, 25) . '...',
+                    'response' => $response->json(),
+                ]);
                 continue;
             }
 
@@ -105,37 +111,45 @@ class FcmService
     /** @param array<string,mixed> $creds */
     private function accessToken(array $creds): ?string
     {
-        return Cache::remember('fcm_access_token', 3300, function () use ($creds) {
-            $now = time();
-            $b64 = fn (string $s) => rtrim(strtr(base64_encode($s), '+/', '-_'), '=');
-            $header = $b64(json_encode(['alg' => 'RS256', 'typ' => 'JWT']));
-            $claims = $b64(json_encode([
-                'iss' => $creds['client_email'],
-                'scope' => self::SCOPE,
-                'aud' => 'https://oauth2.googleapis.com/token',
-                'iat' => $now,
-                'exp' => $now + 3600,
-            ]));
+        $cached = Cache::get('fcm_access_token');
+        if ($cached && is_string($cached)) {
+            return $cached;
+        }
 
-            $signature = '';
-            if (! openssl_sign("$header.$claims", $signature, $creds['private_key'], OPENSSL_ALGO_SHA256)) {
-                Log::error('FCM: gagal menandatangani JWT');
+        $now = time();
+        $b64 = fn (string $s) => rtrim(strtr(base64_encode($s), '+/', '-_'), '=');
+        $header = $b64(json_encode(['alg' => 'RS256', 'typ' => 'JWT']));
+        $claims = $b64(json_encode([
+            'iss' => $creds['client_email'],
+            'scope' => self::SCOPE,
+            'aud' => 'https://oauth2.googleapis.com/token',
+            'iat' => $now,
+            'exp' => $now + 3600,
+        ]));
 
-                return null;
-            }
+        $signature = '';
+        if (! openssl_sign("$header.$claims", $signature, $creds['private_key'], OPENSSL_ALGO_SHA256)) {
+            Log::error('FCM: gagal menandatangani JWT');
 
-            $res = Http::asForm()->timeout(10)->post('https://oauth2.googleapis.com/token', [
-                'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-                'assertion' => "$header.$claims.".$b64($signature),
-            ]);
+            return null;
+        }
 
-            if (! $res->successful()) {
-                Log::error('FCM: gagal mengambil access token', ['body' => $res->body()]);
+        $res = Http::withoutVerifying()->asForm()->timeout(10)->post('https://oauth2.googleapis.com/token', [
+            'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+            'assertion' => "$header.$claims.".$b64($signature),
+        ]);
 
-                return null;
-            }
+        if (! $res->successful()) {
+            Log::error('FCM: gagal mengambil access token', ['body' => $res->body()]);
 
-            return $res->json('access_token');
-        });
+            return null;
+        }
+
+        $token = $res->json('access_token');
+        if ($token) {
+            Cache::put('fcm_access_token', $token, 3300);
+        }
+
+        return $token;
     }
 }

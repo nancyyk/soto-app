@@ -51,6 +51,11 @@ class User extends Authenticatable
         return $this->hasMany(Transaction::class);
     }
 
+    public function fcmTokens(): HasMany
+    {
+        return $this->hasMany(FcmToken::class);
+    }
+
     // Helpers
 
     public function isAdmin(): bool

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/services/push_notification_service.dart';
 import '../../core/widgets/bottom_nav_bar.dart';
 import '../auth/data/auth_service.dart';
 
@@ -24,6 +25,17 @@ class _NotificationPageState extends State<NotificationPage> {
   void initState() {
     super.initState();
     _fetchNotifications();
+    // Refresh daftar notifikasi otomatis saat notifikasi FCM baru masuk (foreground)
+    PushNotificationService.instance.onForegroundNotification = () {
+      if (mounted) _fetchNotifications();
+    };
+  }
+
+  @override
+  void dispose() {
+    // Lepas listener agar tidak ada memory leak
+    PushNotificationService.instance.onForegroundNotification = null;
+    super.dispose();
   }
 
   Future<void> _fetchNotifications() async {

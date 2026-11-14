@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "967668934511",
+    "project_id": "soto-347a4",
+    "storage_bucket": "soto-347a4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:967668934511:android:fa465e82ed54fdb2f4ea9a",
+        "android_client_info": {
+          "package_name": "com.example.soto_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDqwI-jjAg6Jw9At35kli5Gl5gF-Cayepk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

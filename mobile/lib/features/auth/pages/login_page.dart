@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/router/app_router.dart';
+import '../../../core/services/push_notification_service.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_text_field.dart';
 import '../data/auth_service.dart';
@@ -43,6 +46,9 @@ class _LoginPageState extends State<LoginPage> {
       );
 
       if (mounted) {
+        // Daftarkan FCM token ke backend (tidak perlu ditunggu)
+        unawaited(PushNotificationService.instance.registerToken());
+
         final user = response['user'];
         if (user != null && user['rfid_uid'] != null && user['rfid_uid'].toString().isNotEmpty) {
           context.go(AppRouter.home);

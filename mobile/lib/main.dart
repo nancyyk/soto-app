@@ -12,21 +12,39 @@ import 'package:device_preview/device_preview.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Inisialisasi Firebase & FCM (Android only, aman jika belum dikonfigurasi)
   await PushNotificationService.instance.init();
+
   runApp(
     ChangeNotifierProvider(
       create: (_) => LanguageProvider(),
       child: DevicePreview(
-        enabled: !kReleaseMode, 
+        enabled: false,
         builder: (context) => const SotoApp(),
       ),
     ),
   );
 }
 
-/// Root application widget for SOTO app.
-class SotoApp extends StatelessWidget {
+/// Root application widget untuk SOTO app.
+class SotoApp extends StatefulWidget {
   const SotoApp({super.key});
+
+  @override
+  State<SotoApp> createState() => _SotoAppState();
+}
+
+class _SotoAppState extends State<SotoApp> {
+  @override
+  void initState() {
+    super.initState();
+    // Setup handler navigasi FCM setelah widget pertama kali build
+    // (router sudah siap di tahap ini)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      PushNotificationService.instance.setupNavigationHandlers();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

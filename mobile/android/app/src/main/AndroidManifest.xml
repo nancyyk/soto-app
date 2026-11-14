@@ -1,16 +1,38 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Internet permission -->
+    <!-- Izin internet untuk komunikasi FCM dan API -->
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- Android 13+: izin menampilkan notifikasi -->
+    <!-- Android 13+ (API 33+): izin runtime untuk menampilkan notifikasi -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Izin tampil di lock screen (opsional, sebagian besar sudah termasuk) -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:label="soto_app"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">
+
+        <!-- ============================================================
+             FCM: Default notification channel
+             ID harus sama persis dengan yang didaftarkan di Dart dan
+             yang dikirim dari Laravel (android.notification.channel_id)
+             ============================================================ -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="setoran_poin_channel" />
+
+        <!-- FCM: Icon default untuk notifikasi (gunakan ic_launcher atau icon khusus) -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@mipmap/ic_launcher" />
+
+        <!-- FCM: Warna accent untuk icon notifikasi -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/notification_color" />
 
         <activity
             android:name=".MainActivity"
@@ -26,9 +48,16 @@
                 android:name="io.flutter.embedding.android.NormalTheme"
                 android:resource="@style/NormalTheme" />
 
+            <!-- Intent filter untuk deep link notifikasi FCM -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Intent filter untuk FLUTTER_NOTIFICATION_CLICK (deep link dari FCM) -->
+            <intent-filter>
+                <action android:name="FLUTTER_NOTIFICATION_CLICK" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
 
